@@ -69,7 +69,16 @@ npx wrangler login
 npm run deploy
 ```
 
-Then set the three secrets (each command asks for the value and does not echo it):
+Then set the three secrets (each command asks for the value and does not echo it).
+Here is where each value comes from:
+
+| Secret | Where to get it |
+| --- | --- |
+| `NUKI_API_TOKEN` | [web.nuki.io](https://web.nuki.io) → **API** → generate a token with permission to read smartlocks and execute actions (step 1). Copy it right away; it is shown only once. |
+| `NUKI_SMARTLOCK_ID` | Run `NUKI_API_TOKEN=your-token npm run smartlocks` and copy the first column of the line that says `Opener`. |
+| `ACCESS_PIN` | You choose it, at least 6 characters. To generate a random 8-digit PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
+
+When a command prompts `Enter a secret value:`, paste the value and press Enter.
 
 ```bash
 npx wrangler secret put NUKI_API_TOKEN
