@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   contactsToEnv,
   generatePin,
-  getCustomDomain,
   isValidPin,
   normalizeDomain,
   normalizePhone,
   parseDotenv,
-  setCustomDomain,
+  readManaged,
   updateDotenv,
+  workerName,
+  writeManaged,
 } from './lib.mjs'
 
 describe('generatePin / isValidPin', () => {
@@ -64,28 +65,55 @@ describe('dotenv helpers', () => {
   })
 })
 
-describe('custom domain in wrangler.jsonc', () => {
+describe('managed block in wrangler.jsonc', () => {
   const file = [
     '{',
-    '  // --- custom domain (managed by `npm run setup`) ---',
+    '  // --- managed by `npm run setup` ---',
     '  // "routes": [{ "pattern": "door.example.com", "custom_domain": true }],',
-    '  // --- end custom domain ---',
+    '  // "vars": { "OPEN_HOURS": "06:00-22:00", "TIMEZONE": "Europe/Berlin" },',
+    '  // --- end managed by `npm run setup` ---',
     '  "name": "x"',
     '}',
   ].join('\n')
 
-  it('has no domain by default', () => {
-    expect(getCustomDomain(file)).toBeNull()
+  it('reads nothing from the commented defaults', () => {
+    expect(readManaged(file)).toEqual({ domain: null, vars: {} })
   })
-  it('sets, reads and clears the domain', () => {
-    const withDomain = setCustomDomain(file, 'haus.example.org')
-    expect(getCustomDomain(withDomain)).toBe('haus.example.org')
-    expect(withDomain).toContain('"name": "x"')
-    const cleared = setCustomDomain(withDomain, null)
-    expect(getCustomDomain(cleared)).toBeNull()
-    expect(cleared).toBe(file)
+
+  it('writes and reads domain and vars, and turns off workers.dev with a domain', () => {
+    const out = writeManaged(file, { domain: 'haus.example.org', vars: { OPEN_HOURS: '07:00-21:00', TIMEZONE: 'Europe/Berlin' } })
+    expect(out).toContain('"workers_dev": false,')
+    expect(out).toContain('"preview_urls": false,')
+    expect(out).toContain('"name": "x"')
+    expect(readManaged(out)).toEqual({ domain: 'haus.example.org', vars: { OPEN_HOURS: '07:00-21:00', TIMEZONE: 'Europe/Berlin' } })
   })
-  it('returns null when the markers are missing', () => {
-    expect(setCustomDomain('{ "name": "x" }', 'a.example.com')).toBeNull()
+
+  it('restores the commented defaults when everything is cleared', () => {
+    const out = writeManaged(file, { domain: 'a.example.com', vars: { NUKI_ACTION: '3' } })
+    expect(writeManaged(out, { domain: null, vars: {} })).toBe(file)
   })
+
+  it('upgrades the marker format of older versions', () => {
+    const old = [
+      '{',
+      '  // --- custom domain (managed by `npm run setup`) ---',
+      '  "routes": [{ "pattern": "old.example.com", "custom_domain": true }],',
+      '  // --- end custom domain ---',
+      '}',
+    ].join('\n')
+    expect(readManaged(old)?.domain).toBe('old.example.com')
+    const out = writeManaged(old, { domain: 'old.example.com', vars: {} })
+    expect(out).toContain('// --- managed by `npm run setup` ---')
+    expect(readManaged(out)?.domain).toBe('old.example.com')
+  })
+
+  it('returns null when the block is missing', () => {
+    expect(readManaged('{ "name": "x" }')).toBeNull()
+    expect(writeManaged('{ "name": "x" }', { domain: null, vars: {} })).toBeNull()
+  })
+})
+
+it('reads the worker name from wrangler.jsonc', () => {
+  expect(workerName('{\n  "name": "my-door",\n  "main": "x"\n}')).toBe('my-door')
+  expect(workerName('{}')).toBe('nuki-opener-link')
 })

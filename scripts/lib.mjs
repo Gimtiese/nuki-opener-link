@@ -73,27 +73,57 @@ export function contactsToEnv(contacts) {
   return `'${JSON.stringify(contacts).replace(/'/g, '\\u0027')}'`
 }
 
-const DOMAIN_START = '// --- custom domain (managed by `npm run setup`) ---'
-const DOMAIN_END = '// --- end custom domain ---'
-const EXAMPLE_ROUTE = '// "routes": [{ "pattern": "door.example.com", "custom_domain": true }],'
+/* ---------- managed block in wrangler.jsonc (domain + vars) ---------- */
 
-/** Reads the active custom domain from wrangler.jsonc text, or null. */
-export function getCustomDomain(wranglerText) {
-  const m = wranglerText.match(/^\s*"routes"\s*:\s*\[\s*\{\s*"pattern"\s*:\s*"([^"]+)"/m)
-  return m ? m[1] : null
+const MANAGED_START = '// --- managed by `npm run setup` ---'
+const MANAGED_END = '// --- end managed by `npm run setup` ---'
+// Also matches the markers of older versions, which only managed the domain.
+const MANAGED_RE =
+  /\/\/ --- (?:managed by `npm run setup`|custom domain \(managed by `npm run setup`\)) ---\n([\s\S]*?)\n([ \t]*)\/\/ --- end (?:managed by `npm run setup`|custom domain) ---/
+
+const EXAMPLE_ROUTES = '// "routes": [{ "pattern": "door.example.com", "custom_domain": true }],'
+const EXAMPLE_VARS = '// "vars": { "OPEN_HOURS": "06:00-22:00", "TIMEZONE": "Europe/Berlin" },'
+
+/**
+ * Reads domain and vars from the managed block of wrangler.jsonc.
+ * @returns {{ domain: string | null, vars: Record<string, string> } | null} null if the block is missing
+ */
+export function readManaged(wranglerText) {
+  const block = wranglerText.match(MANAGED_RE)?.[1]
+  if (block === undefined) return null
+  const domain = block.match(/^\s*"routes"\s*:\s*\[\s*\{\s*"pattern"\s*:\s*"([^"]+)"/m)?.[1] ?? null
+  let vars = {}
+  const varsLine = block.match(/^\s*"vars"\s*:\s*(\{.*\})\s*,?\s*$/m)?.[1]
+  if (varsLine) {
+    try {
+      vars = JSON.parse(varsLine)
+    } catch {
+      vars = {}
+    }
+  }
+  return { domain, vars }
 }
 
-/** Writes (or clears) the custom domain between the markers in wrangler.jsonc. Returns null if the markers are missing. */
-export function setCustomDomain(wranglerText, domain) {
-  const re = new RegExp(`(${escapeRe(DOMAIN_START)}\\n)[\\s\\S]*?(\\n[ \\t]*${escapeRe(DOMAIN_END)})`)
-  if (!re.test(wranglerText)) return null
-  const body = domain
-    ? `  "routes": [{ "pattern": "${domain}", "custom_domain": true }],`
-    : `  ${EXAMPLE_ROUTE}`
-  return wranglerText.replace(re, (_, start, end) => `${start}${body}${end}`)
+/**
+ * Writes domain and vars into the managed block. Returns null if the block is missing.
+ * @param {string} wranglerText
+ * @param {{ domain: string | null, vars: Record<string, string> }} settings
+ */
+export function writeManaged(wranglerText, { domain, vars }) {
+  if (!MANAGED_RE.test(wranglerText)) return null
+  const entries = Object.entries(vars).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  const lines = domain
+    ? [`"routes": [{ "pattern": "${domain}", "custom_domain": true }],`, '"workers_dev": false,', '"preview_urls": false,']
+    : [EXAMPLE_ROUTES]
+  lines.push(
+    entries.length
+      ? `"vars": { ${entries.map(([k, v]) => `${JSON.stringify(k)}: ${JSON.stringify(String(v))}`).join(', ')} },`
+      : EXAMPLE_VARS,
+  )
+  return wranglerText.replace(MANAGED_RE, (_, _body, indent) =>
+    [MANAGED_START, ...lines, MANAGED_END].map((line, i) => (i === 0 ? line : `${indent}${line}`)).join('\n'),
+  )
 }
-
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /* ---------- Nuki API ---------- */
 
@@ -158,3 +188,24 @@ export async function choose(prompt, options, defaultIndex = 0) {
     console.log(`  1-${options.length}`)
   }
 }
+
+/* ---------- Cloudflare API (uses the token of `wrangler login`) ---------- */
+
+/** @returns {Promise<{ ok: boolean, result?: any, error?: string }>} */
+export async function cloudflareApi(token, method, path, body) {
+  try {
+    const res = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok && data.success) return { ok: true, result: data.result }
+    return { ok: false, error: (data.errors ?? []).map((e) => e.message).join('; ') || `HTTP ${res.status}` }
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
+}
+
+/** Reads the worker name from wrangler.jsonc. */
+export const workerName = (wranglerText) => wranglerText.match(/^\s*"name"\s*:\s*"([^"]+)"/m)?.[1] ?? 'nuki-opener-link'

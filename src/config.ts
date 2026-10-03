@@ -34,3 +34,5 @@ export function parseContacts(raw: string | undefined): Contact[] {
 
 export const siteTitle: string | undefined = import.meta.env.VITE_SITE_TITLE?.trim() || undefined
 export const contacts: Contact[] = parseContacts(import.meta.env.VITE_CONTACTS)
+
+export const turnstileSiteKey: string | undefined = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() || undefined

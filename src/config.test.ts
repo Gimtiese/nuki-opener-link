@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { parseContacts } from './config'
-import { detectLocale, resolveLocale } from './i18n'
+import { detectLocale, fill, formatDuration, getMessages, resolveLocale } from './i18n'
 
 describe('parseContacts', () => {
   it('parses valid entries and builds tel: links', () => {
@@ -36,5 +36,16 @@ describe('locale', () => {
     expect(resolveLocale('de', ['en'])).toBe('de')
     expect(resolveLocale('auto', ['de'])).toBe('de')
     expect(resolveLocale(undefined, ['en'])).toBe('en')
+  })
+})
+
+describe('message helpers', () => {
+  it('formats durations and fills placeholders', () => {
+    const de = getMessages('de')
+    expect(formatDuration(de, 1)).toBe('1 Sekunde')
+    expect(formatDuration(de, 45)).toBe('45 Sekunden')
+    expect(formatDuration(de, 61)).toBe('2 Minuten')
+    expect(formatDuration(getMessages('en'), 60)).toBe('1 minute')
+    expect(fill('in {time}, at {hours}', { time: '5 min', hours: '07–21' })).toBe('in 5 min, at 07–21')
   })
 })

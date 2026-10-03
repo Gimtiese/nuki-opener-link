@@ -13,7 +13,14 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // Brute-force protection: at most 10 requests per minute per IP address.
+  // Brute-force guard: one global Durable Object that counts wrong PINs worldwide
+  // (included in the Workers free plan). See worker/guard.ts.
+  "durable_objects": {
+    "bindings": [{ "name": "GUARD", "class_name": "Guard" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Guard"] }],
+
+  // Cheap flood protection in front of the guard: 10 requests per minute per IP (IPv6: per /64).
   "ratelimits": [
     {
       "name": "RATE_LIMITER",
@@ -22,18 +29,19 @@
     }
   ],
 
-  // Your own domain: `npm run setup` fills this in. The DNS zone must be in the same
-  // Cloudflare account. Without a domain the page is served at <name>.<subdomain>.workers.dev.
-  // --- custom domain (managed by `npm run setup`) ---
+  // Domain and opening hours. `npm run setup` writes this block; you can also edit it by hand.
+  // - routes: your own domain; its DNS zone must be in the same Cloudflare account.
+  //   With a domain, the *.workers.dev address is switched off.
+  // - vars: OPEN_HOURS ("07:00-21:00", several ranges with commas) and TIMEZONE ("Europe/Berlin").
+  //   Optional NUKI_ACTION (default 3 = Opener buzzer / Smart Lock unlatch).
+  // --- managed by `npm run setup` ---
   // "routes": [{ "pattern": "door.example.com", "custom_domain": true }],
-  // --- end custom domain ---
-
-  // Optional: change the Nuki action (default 3 = Opener buzzer / Smart Lock unlatch).
-  // "vars": { "NUKI_ACTION": "3" },
+  // "vars": { "OPEN_HOURS": "06:00-22:00", "TIMEZONE": "Europe/Berlin" },
+  // --- end managed by `npm run setup` ---
 
   "observability": { "enabled": true }
 
-  // Secrets are NOT set here. Use:
+  // Secrets are NOT set here: `npm run setup` uploads them, or set them by hand with
   //   npx wrangler secret put NUKI_API_TOKEN
   //   npx wrangler secret put NUKI_SMARTLOCK_ID
   //   npx wrangler secret put ACCESS_PIN

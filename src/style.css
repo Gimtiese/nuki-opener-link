@@ -85,6 +85,9 @@ input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
 .message.success { border-color: var(--ok); color: var(--ok); }
 .message.error { border-color: var(--err); color: var(--err); }
 
+.captcha:empty { display: none; }
+.captcha { display: flex; justify-content: center; }
+
 .link {
   align-self: center;
   background: none;

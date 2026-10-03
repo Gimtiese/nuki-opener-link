@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 
@@ -9,6 +10,10 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'worker/**/*.test.ts', 'scripts/**/*.test.mjs'],
+    include: ['src/**/*.test.ts', 'worker/**/*.test.ts', 'scripts/**/*.test.mjs', 'shared/**/*.test.mjs'],
+    alias: {
+      // The Workers runtime module does not exist in Node; tests use a minimal stand-in.
+      'cloudflare:workers': fileURLToPath(new URL('./worker/test/cloudflare-workers.ts', import.meta.url)),
+    },
   },
 })

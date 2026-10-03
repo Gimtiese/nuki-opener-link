@@ -10,10 +10,19 @@ export interface Messages {
   opened: string
   success: string
   wrongPin: string
+  /** {time} = e.g. "5 minutes" */
+  locked: string
+  cooldown: string
+  /** {time} */
   rateLimited: string
+  /** {hours} = e.g. "07:00–21:00" */
+  closed: string
+  captchaFailed: string
   failed: string
   changePin: string
   problems: string
+  seconds: (n: number) => string
+  minutes: (n: number) => string
 }
 
 const messages: Record<Locale, Messages> = {
@@ -27,10 +36,16 @@ const messages: Record<Locale, Messages> = {
     opened: '✓ Opened',
     success: 'Buzzer activated – please push the door open.',
     wrongPin: 'That PIN is not correct.',
-    rateLimited: 'Too many attempts. Please wait a moment and try again.',
+    locked: 'Too many wrong attempts. Please try again in {time} or call.',
+    cooldown: 'The door was just opened. Please wait a few seconds.',
+    rateLimited: 'Too many attempts. Please try again in {time}.',
+    closed: 'The door can only be opened at these times: {hours}.',
+    captchaFailed: 'The security check failed. Please try again.',
     failed: 'The door could not be opened right now. Please try again or call.',
     changePin: 'Change PIN',
     problems: 'Not working? Please call:',
+    seconds: (n) => (n === 1 ? '1 second' : `${n} seconds`),
+    minutes: (n) => (n === 1 ? '1 minute' : `${n} minutes`),
   },
   de: {
     title: 'Haustür',
@@ -42,10 +57,16 @@ const messages: Record<Locale, Messages> = {
     opened: '✓ Geöffnet',
     success: 'Summer betätigt – bitte die Tür aufdrücken.',
     wrongPin: 'Der PIN ist nicht korrekt.',
-    rateLimited: 'Zu viele Versuche. Bitte kurz warten und erneut probieren.',
+    locked: 'Zu viele Fehlversuche. Bitte in {time} erneut versuchen oder anrufen.',
+    cooldown: 'Die Tür wurde gerade geöffnet. Bitte ein paar Sekunden warten.',
+    rateLimited: 'Zu viele Versuche. Bitte in {time} erneut versuchen.',
+    closed: 'Die Tür lässt sich nur zu diesen Zeiten öffnen: {hours}.',
+    captchaFailed: 'Die Sicherheitsprüfung ist fehlgeschlagen. Bitte noch einmal versuchen.',
     failed: 'Die Tür konnte gerade nicht geöffnet werden. Bitte noch einmal versuchen oder anrufen.',
     changePin: 'PIN ändern',
     problems: 'Klappt etwas nicht? Bitte anrufen:',
+    seconds: (n) => (n === 1 ? '1 Sekunde' : `${n} Sekunden`),
+    minutes: (n) => (n === 1 ? '1 Minute' : `${n} Minuten`),
   },
 }
 
@@ -65,3 +86,12 @@ export function resolveLocale(setting: string | undefined, languages: readonly s
 export function getMessages(locale: Locale): Messages {
   return messages[locale]
 }
+
+/** "45 seconds", "3 minutes" (rounded up). */
+export function formatDuration(t: Messages, seconds: number): string {
+  return seconds < 60 ? t.seconds(Math.max(1, Math.ceil(seconds))) : t.minutes(Math.ceil(seconds / 60))
+}
+
+/** Replaces {name} placeholders. */
+export const fill = (text: string, values: Record<string, string>) =>
+  text.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? '')

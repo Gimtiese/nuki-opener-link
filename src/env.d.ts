@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_CONTACTS?: string
   /** "auto" (default), "en" or "de". */
   readonly VITE_LOCALE?: string
+  /** Cloudflare Turnstile site key. Empty = no Turnstile. */
+  readonly VITE_TURNSTILE_SITE_KEY?: string
 }
 
 declare module '*.vue' {

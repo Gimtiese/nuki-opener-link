@@ -5,31 +5,28 @@
 
 *Deutsche Anleitung: [README.de.md](README.de.md)*
 
-A one-button web page that lets delivery people buzz open your door. It triggers the door
-buzzer of your **[Nuki Opener](https://nuki.io/en/opener/)** through the Nuki Web API.
-Built with Vue 3 + TypeScript and hosted for free on Cloudflare Workers.
+A one-button web page that lets delivery people buzz open your door with a
+**[Nuki Opener](https://nuki.io/en/opener/)**. Free to host on Cloudflare, set up with one command.
 
-- **One tap**: PIN, big button, done. Works on any phone, no app, no account for visitors.
-- **Your Nuki token never reaches the browser.** It lives as a Worker secret.
-- **Protected by a shared PIN** with per-IP rate limiting and constant-time comparison.
-- **Reliable**: automatic retries against the Nuki API, clear error messages, phone numbers to call as a fallback.
-- **Free**: Cloudflare Workers free plan (static assets are not billed as requests) and the Nuki Web API.
-- English and German UI (follows the browser language), dark mode, strict CSP, `noindex`.
+- **One tap for visitors**: PIN, big button, done. No app, no account.
+- **Hardened**: brute-force guard that works worldwide, opening hours, optional Cloudflare Turnstile, strict security headers.
+- **Simple to run**: `npm run setup` asks a few questions and does everything else.
+- **Free**: Cloudflare Workers free plan, Nuki Web API, Turnstile.
 
 ```
-Phone ──POST /api/open {pin}──▶ Cloudflare Worker ──POST api.nuki.io/smartlock/{id}/action──▶ Nuki Cloud ▶ Bridge ▶ Opener
+Phone ──▶ Cloudflare Worker ──▶ Nuki Web API ──▶ Bridge ──▶ Opener ──▶ buzzer
+          checks: rate limit · opening hours · Turnstile · PIN + brute-force guard
 ```
 
 > **Not affiliated with Nuki.** "Nuki" is a trademark of Nuki Home Solutions GmbH.
-> This opens a door: read [Security](#security) before you publish it. Use at your own risk.
+> This project opens a door. Read [Security](#security) and use it at your own risk.
 
 ## Requirements
 
-- A **Nuki Opener** connected to your door intercom, set up in the Nuki app, **with a Nuki Bridge**
-  (the Opener talks to the Nuki cloud through the Bridge).
-- A [Nuki Web](https://web.nuki.io) account (the one your Opener is registered with).
-- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account. A custom domain is optional.
-- Node.js 20 or newer.
+- A **Nuki Opener** connected to your intercom, set up in the Nuki app, **with a Nuki Bridge**.
+- A [Nuki Web](https://web.nuki.io) login (the account your Opener is registered to).
+- A free [Cloudflare account](https://dash.cloudflare.com/sign-up). Your own domain is optional.
+- [Node.js](https://nodejs.org) 20 or newer and Git.
 
 ## Quick start
 
@@ -40,142 +37,165 @@ npm install
 npm run setup
 ```
 
-The installer asks a few questions and does the rest:
+The installer takes about five minutes:
 
-1. Logs you in to Cloudflare (a browser window opens).
-2. Asks for your Nuki API token ([how to create it](#nuki-api-token)), checks it and finds your Opener automatically.
-3. Creates a random PIN for visitors (or lets you choose one).
-4. Asks for language, heading, phone numbers for problems and an optional custom domain.
-5. Builds the page, deploys it, uploads the secrets and tests that everything works. It can even buzz the door once.
+| Step | What happens |
+| --- | --- |
+| 1. Cloudflare | Opens the browser to log in (only the first time). |
+| 2. Nuki | Asks for your [Nuki API token](#nuki-api-token) (hidden input), checks it and finds your Opener. |
+| 3. PIN | Generates a random 8-digit PIN for visitors, or lets you choose one (at least 5 characters). |
+| 4. Opening hours | Around the clock, daytime (06:00–22:00) or your own times. |
+| 5. Page | Language, heading and phone numbers shown when something goes wrong. |
+| 6. Address | Your own domain or a free `*.workers.dev` address, and Turnstile on or off. |
+| 7. Publish | Creates the Turnstile widget, builds, deploys, uploads the secrets and checks that the page is live. |
 
-At the end you get the address and a link with the PIN pre-filled. Run `npm run setup` again any time to change settings.
-Want to look first? `npm run setup -- --dry-run` asks all questions but changes nothing.
+At the end you get the address, a link with the PIN pre-filled and the PIN itself. Write it down.
+
+To see the questions first without changing anything, run `npm run setup -- --dry-run`.
 
 ### Nuki API token
 
-1. Open [web.nuki.io](https://web.nuki.io) and log in with the account your Opener is registered to.
-2. Go to **API** and generate a token. Allow it to **read smartlocks** and to **execute smartlock actions**.
-3. Copy it right away; it is shown only once. Paste it into the installer, which hides your input.
+1. Log in at [web.nuki.io](https://web.nuki.io) with the account your Opener is registered to.
+2. Open **API** and generate a token. Allow it to **read smartlocks** and to **execute smartlock actions**.
+3. Copy it right away; it is shown only once. Paste it into the installer when asked.
 
-Never put the token into commands, chats or files in the repo.
+Never put the token into a command line, a chat or a file in the repository.
 
-## Manual setup
+## Everyday use
 
-Prefer to do it by hand? These are the steps `npm run setup` performs.
+| Task | How |
+| --- | --- |
+| Give someone access | Send the address and the PIN, or the link `https://your-address/#pin=12345678`. The PIN in the link never reaches a server and is removed from the address bar. The page remembers it on that phone. |
+| Change the PIN (revoke access) | `npx wrangler secret put ACCESS_PIN`. Takes effect at once; old PINs stop working. |
+| Change hours, phone numbers, domain, Turnstile | Run `npm run setup` again. Your current settings are pre-filled. |
+| Watch what happens | `npx wrangler tail` shows live logs, including wrong PINs and locks. |
+| Update to a new version | `git pull && npm install && npm run setup` |
 
-1. Create the token as described above and run `npm run smartlocks` to list your devices. Copy the first column of the `Opener` line: that is `NUKI_SMARTLOCK_ID`.
-2. Optional: `cp .env.example .env` and edit it (title, language, phone numbers). These values are embedded into the public page at build time, so never put secrets there.
-3. Optional: for your own domain, uncomment the `routes` line in [`wrangler.jsonc`](wrangler.jsonc) and enter the hostname. The DNS zone must be in the same Cloudflare account; without it the page is served on a `*.workers.dev` address.
-4. Deploy:
+## Security
+
+No page that opens a door with a shared PIN can be 100 % secure: anyone who knows the PIN gets in.
+The goal is that **guessing is practically impossible**, misuse is limited, and nothing leaks.
+
+### Layers
+
+| Layer | Protects against | Details |
+| --- | --- | --- |
+| Opening hours | Use at night | Outside the hours the door cannot be opened at all, not even with the right PIN. |
+| Brute-force guard | Guessing the PIN, also from many IPs | One global [Durable Object](worker/guard.ts) sees every attempt worldwide. **Per client** (IPv4 address, IPv6 /64 network): locked after 5 wrong PINs, 1 minute, doubling up to 1 hour. **Globally**: 30 wrong PINs within an hour lock the door for everyone for 1 hour. While locked, even the correct PIN is refused, so a lock never reveals whether a guess was right. |
+| Turnstile (optional) | Bots and scripts | Cloudflare checks invisibly that a human is using the page; usually no click needed. Failed checks never count as PIN attempts. |
+| Rate limit | Request floods | 10 requests per minute per client before anything else runs. |
+| Secrets | Leaking credentials | Nuki token, PIN and Turnstile secret exist only as Worker secrets, never in the page or the repository. The device and the action are fixed, so the API cannot be used for anything else. |
+| Request checks | Cross-site requests, junk | Only `POST` with JSON, foreign origins refused, body capped at 4 KB, constant-time PIN comparison. |
+| Headers | Injection, framing, downgrade | Strict Content-Security-Policy, HSTS, no framing, no referrer, `noindex`. |
+
+With these limits, guessing a 5-digit PIN takes on average about two months of continuous attacking,
+during which the door is locked about half of the time. An 8-digit PIN takes centuries. **Use 8 digits.**
+
+### What you should know
+
+- **A global lock can be triggered on purpose.** Someone who keeps guessing can lock the page for real visitors. Locks end on their own (at most 1 hour). For that case, the page shows your phone numbers.
+- **The PIN spreads.** Delivery people may pass it on. Change it from time to time and whenever you suspect misuse.
+- **The remembered PIN** sits in `localStorage` on the visitor's phone.
+- **Nuki does not confirm execution.** If the Bridge is offline, the page may report success although nothing happened.
+- **Turnstile needs Cloudflare.** If its script is blocked on a visitor's phone, that visitor cannot open the door and sees the phone numbers.
+
+### Protect your accounts
+
+The biggest real risk is not this code but your accounts:
+
+- Turn on two-factor authentication for **Cloudflare** and **Nuki**.
+- The Worker only needs the permission to **execute actions**. If you like, create a second Nuki token with only that permission after the setup and set it with `npx wrangler secret put NUKI_API_TOKEN`.
+
+Found a vulnerability? See [SECURITY.md](SECURITY.md).
+
+## Configuration reference
+
+The installer manages all of this. For manual changes:
+
+| Setting | Where | Notes |
+| --- | --- | --- |
+| `NUKI_API_TOKEN` | Worker secret | Nuki Web API token |
+| `NUKI_SMARTLOCK_ID` | Worker secret | Device ID from `npm run smartlocks` |
+| `ACCESS_PIN` | Worker secret | At least 5 characters, 8 digits recommended |
+| `TURNSTILE_SECRET_KEY` | Worker secret (optional) | Enables Turnstile; needs `VITE_TURNSTILE_SITE_KEY` |
+| `OPEN_HOURS` | `vars` in `wrangler.jsonc` (optional) | `07:00-21:00`; several ranges with commas, over midnight like `22:00-06:00`. Empty = always |
+| `TIMEZONE` | `vars` in `wrangler.jsonc` | IANA name like `Europe/Berlin`; required with `OPEN_HOURS` |
+| `NUKI_ACTION` | `vars` in `wrangler.jsonc` (optional) | Default `3` = Opener buzzer. On a Smart Lock: 1 unlock, 2 lock, 3 unlatch |
+| `routes` | `wrangler.jsonc` | Your own domain; turns the `workers.dev` address off |
+| `VITE_TURNSTILE_SITE_KEY` | `.env` (build time) | Turnstile site key |
+| `VITE_SITE_TITLE` | `.env` (build time) | Heading and browser title |
+| `VITE_CONTACTS` | `.env` (build time) | `[{"label":"Anna","phone":"+49 160 1234567"}]` |
+| `VITE_LOCALE` | `.env` (build time) | `auto` (default), `en` or `de` |
+
+`.env` values become part of the public page, so never put secrets there. After editing `.env` or
+`wrangler.jsonc`, run `npm run deploy`. Invalid settings make the API answer `503 not_configured`
+and `npx wrangler tail` names the problem; the door never opens on a broken configuration.
+
+<details>
+<summary><strong>Manual setup without the installer</strong></summary>
+
+1. Create the [Nuki API token](#nuki-api-token) and run `npm run smartlocks`. The first column of the `Opener` line is your device ID.
+2. Optional: `cp .env.example .env` and edit it.
+3. Optional: edit the block `managed by npm run setup` in [`wrangler.jsonc`](wrangler.jsonc) for domain and opening hours.
+4. Deploy and set the secrets (each command asks for the value):
 
    ```bash
    npx wrangler login
    npm run deploy
-   ```
-
-5. Set the three secrets. Each command asks for the value (paste it when you see `Enter a secret value:`):
-
-   ```bash
    npx wrangler secret put NUKI_API_TOKEN
    npx wrangler secret put NUKI_SMARTLOCK_ID
    npx wrangler secret put ACCESS_PIN
    ```
 
-   | Secret | Value |
-   | --- | --- |
-   | `NUKI_API_TOKEN` | The token from above |
-   | `NUKI_SMARTLOCK_ID` | The ID from `npm run smartlocks` |
-   | `ACCESS_PIN` | You choose it, at least 5 characters (6 or more is better). A random 8-digit PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
+5. Optional Turnstile: create a widget for your hostname in the [Cloudflare dashboard](https://dash.cloudflare.com/?to=/:account/turnstile), put the site key into `.env` as `VITE_TURNSTILE_SITE_KEY`, run `npx wrangler secret put TURNSTILE_SECRET_KEY` with the secret key, then `npm run deploy`.
 
-   Until all three are set, the API answers `503 not_configured`.
+</details>
 
-6. Open your page, enter the PIN and tap **Open door**. The buzzer of your Opener should sound. If not, see [Troubleshooting](#troubleshooting).
+## Troubleshooting
 
-## Handing it out
+Live logs: `npx wrangler tail`, then tap the button.
 
-Share the address and the PIN. To save visitors from typing, send a link with the PIN in the
-fragment:
-
-```
-https://door.example.com/#pin=123456
-```
-
-The fragment is never sent to a server and is removed from the address bar right away; the
-page remembers the PIN on that device. Be aware that the full link lives on in chat
-histories and previews.
-
-To **change or revoke access**, set a new PIN: `npx wrangler secret put ACCESS_PIN`.
-Devices with the old PIN are asked for the new one on their next attempt.
-
-## Configuration reference
-
-| What | Where | Notes |
-| --- | --- | --- |
-| `NUKI_API_TOKEN` | Worker secret | Nuki Web API token |
-| `NUKI_SMARTLOCK_ID` | Worker secret | From `npm run smartlocks` |
-| `ACCESS_PIN` | Worker secret | At least 5 characters |
-| `NUKI_ACTION` | Worker var (optional) | Default `3`: Opener buzzer. On a Smart Lock `3` is *unlatch* (other values: 1 unlock, 2 lock, 4 lock'n'go, 5 lock'n'go with unlatch). Uncomment `vars` in `wrangler.jsonc` to change it |
-| `RATE_LIMITER` | `ratelimits` in `wrangler.jsonc` | Default: 10 requests / minute / IP |
-| `VITE_SITE_TITLE` | `.env` (build time) | Heading and browser title |
-| `VITE_CONTACTS` | `.env` (build time) | JSON array `[{"label":"Anna","phone":"+49 160 1234567"}]` |
-| `VITE_LOCALE` | `.env` (build time) | `auto` (default), `en` or `de` |
+| Page or log says | Cause and fix |
+| --- | --- |
+| "The PIN is not correct" | Wrong PIN. Five wrong PINs lock that phone for a while. |
+| "Too many wrong attempts …" | Locked by the brute-force guard. Wait the time shown (at most 1 hour). |
+| "Only at these times …" | Outside the opening hours. Change them with `npm run setup`. |
+| "The security check failed" | Turnstile could not confirm a human. Reload the page; on persistent problems run `npm run setup` (checks the widget's domain). |
+| "Could not be opened right now" + `Nuki API rejected the request: HTTP 401/403` | Token invalid or without the action permission. |
+| … + `HTTP 400` or `404` | Wrong device ID. Use the number from `npm run smartlocks`, and a token of the account the Opener belongs to. |
+| … + `HTTP 5xx` or timeouts | Nuki cloud outage; the Worker already retried 3 times. |
+| Success, but the buzzer stays silent | Bridge or Opener offline. Check the device in the Nuki app. |
+| `503 not_configured` | A setting is missing or invalid; the log names it. Run `npm run setup`. |
+| Deploy fails with a domain | The domain must be managed by Cloudflare in the same account. |
 
 ## Local development
 
 ```bash
-cp .dev.vars.example .dev.vars   # use test values; the file is git-ignored
-npm run preview                  # build + Worker + assets on http://localhost:8787
+cp .dev.vars.example .dev.vars   # test values, git-ignored
+npm run preview                  # build and run the Worker on http://localhost:8787
 ```
 
-With a fake `NUKI_API_TOKEN` the full flow runs and ends in `502 nuki_unreachable`,
-without opening anything. For frontend work use `npm run dev:worker` and `npm run dev`
-(Vite proxies `/api` to the Worker). Run all checks with `npm run check`
-(type check, unit tests, build).
-
-## Security
-
-This page lets anyone who knows the PIN open your entrance. The design limits the risk,
-but you decide whether it fits your situation.
-
-- The Opener only triggers the **door buzzer** (typically the building entrance). It does not unlock your apartment door.
-- The Nuki token and the PIN exist only as Worker secrets, never in the page.
-- The PIN is compared in constant time. Requests are limited per IP (10/min by default), which slows guessing down: a 5-digit PIN has 100,000 combinations, so a single IP address needs about a week, a distributed attacker much less. **Prefer a longer, random PIN (8 digits or more)** and rotate it if it leaks.
-- Every request needs a same-origin `Origin` header (when sent) and the correct PIN; wrong or malformed requests never reach the Nuki API.
-- The page is served with a strict Content-Security-Policy, no framing, no referrer and `noindex`.
-- The remembered PIN sits in the browser's `localStorage` on the visitor's device. Do not hand the PIN to people you do not trust with the door.
-- The Nuki API accepts the command but does not confirm that the Opener executed it. If the Bridge is offline, the page may report success although nothing happened.
-
-Found a vulnerability? See [SECURITY.md](SECURITY.md).
-
-## Troubleshooting
-
-| Symptom | Likely cause |
-| --- | --- |
-| "The door could not be opened right now" and `Nuki API rejected the request: HTTP 401/403` in `npx wrangler tail` | Token invalid or missing the permission to execute actions |
-| Same, with HTTP 400 or 404 | Wrong `NUKI_SMARTLOCK_ID`: use the number from `npm run smartlocks`, not the device ID printed in the app, and make sure the token belongs to the account the Opener is registered with |
-| Same, with HTTP 5xx or timeouts | Nuki cloud outage; the Worker already retried 3 times |
-| Page says success but the buzzer is silent | Bridge or Opener offline or out of Bluetooth range; check the device in the Nuki app |
-| `503 not_configured` | A secret is missing, `ACCESS_PIN` is shorter than 5 characters, or `NUKI_ACTION` is not 1-5 |
-| "Too many attempts" | Rate limit hit; wait a minute |
-| `ratelimits` rejected on deploy | Remove the `ratelimits` block (the Worker then runs without rate limiting; use a long PIN) |
-
-Live logs: `npx wrangler tail`.
+With the fake token from the example, the whole flow runs and ends in `502 nuki_unreachable`
+without opening anything. `.dev.vars.example` contains Cloudflare's official Turnstile **test**
+secret; build with `VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA npm run preview` to try Turnstile
+locally. For frontend work run `npm run dev:worker` and `npm run dev` side by side.
+`npm run check` runs type checks, all tests and the build.
 
 ## Project layout
 
 ```
-worker/index.ts      Worker: PIN check, rate limit, Nuki API call
-worker/index.test.ts Worker unit tests
-src/                 Vue 3 frontend (App.vue, i18n, API client, config)
-public/_headers      Security headers for the static assets
-scripts/setup.mjs     Interactive installer (npm run setup)
-scripts/lib.mjs       Shared helpers, list-smartlocks.mjs lists your Nuki devices
-wrangler.jsonc       Cloudflare configuration
+worker/index.ts     API: checks in order, Nuki call
+worker/guard.ts     brute-force guard (Durable Object)
+shared/hours.js     opening hours, shared by Worker and installer
+src/                Vue 3 page (App.vue, Turnstile, texts in en/de)
+scripts/setup.mjs   interactive installer
+public/_headers     security headers
+wrangler.jsonc      Cloudflare configuration
 ```
 
 ## Contributing
 
-Issues and pull requests are welcome. Run `npm run check` before you open a PR.
+Issues and pull requests are welcome. Please run `npm run check` before opening a pull request.
 
 ## License
 

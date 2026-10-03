@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { openDoor } from './api'
-import { contacts, PIN_STORAGE_KEY, siteTitle } from './config'
-import { getMessages, resolveLocale } from './i18n'
+import { openDoor, type OpenResult } from './api'
+import { contacts, PIN_STORAGE_KEY, siteTitle, turnstileSiteKey } from './config'
+import { fill, formatDuration, getMessages, resolveLocale } from './i18n'
+import { createTurnstile, type Turnstile } from './turnstile'
 
 type State = 'idle' | 'loading' | 'success' | 'error'
 
-const t = getMessages(resolveLocale(import.meta.env.VITE_LOCALE, navigator.languages ?? [navigator.language]))
+const locale = resolveLocale(import.meta.env.VITE_LOCALE, navigator.languages ?? [navigator.language])
+const t = getMessages(locale)
 const title = siteTitle ?? t.title
 
 const pin = ref('')
 const hasSavedPin = ref(false)
 const state = ref<State>('idle')
 const message = ref('')
+const captchaBox = ref<HTMLElement | null>(null)
+let turnstile: Turnstile | undefined
 let resetTimer: ReturnType<typeof setTimeout> | undefined
 
 function readSavedPin(): string {
@@ -34,6 +38,7 @@ function savePin(value: string) {
 
 onMounted(() => {
   document.title = title
+  if (turnstileSiteKey && captchaBox.value) turnstile = createTurnstile(turnstileSiteKey, captchaBox.value, locale)
 
   // A link like https://door.example.com/#pin=123456 pre-fills the PIN.
   // The fragment is never sent to a server; it is removed from the address bar right away.
@@ -54,6 +59,33 @@ onBeforeUnmount(() => clearTimeout(resetTimer))
 
 const canOpen = computed(() => state.value !== 'loading' && pin.value.trim().length > 0)
 
+function forgetPin() {
+  savePin('')
+  hasSavedPin.value = false
+  pin.value = ''
+}
+
+function messageFor(result: OpenResult): string {
+  switch (result.status) {
+    case 'ok':
+      return t.success
+    case 'wrong_pin':
+      return t.wrongPin
+    case 'locked':
+      return fill(t.locked, { time: formatDuration(t, result.retryAfter) })
+    case 'cooldown':
+      return t.cooldown
+    case 'rate_limited':
+      return fill(t.rateLimited, { time: formatDuration(t, result.retryAfter) })
+    case 'closed':
+      return fill(t.closed, { hours: result.openHours })
+    case 'captcha_failed':
+      return t.captchaFailed
+    default:
+      return t.failed
+  }
+}
+
 async function open() {
   if (!canOpen.value) return
   const value = pin.value.trim()
@@ -61,38 +93,31 @@ async function open() {
   state.value = 'loading'
   message.value = ''
 
-  switch (await openDoor(value)) {
-    case 'ok':
-      state.value = 'success'
-      message.value = t.success
-      savePin(value)
-      hasSavedPin.value = true
-      resetTimer = setTimeout(() => {
-        state.value = 'idle'
-        message.value = ''
-      }, 8000)
-      break
-    case 'wrong_pin':
-      state.value = 'error'
-      message.value = t.wrongPin
-      savePin('')
-      hasSavedPin.value = false
-      pin.value = ''
-      break
-    case 'rate_limited':
-      state.value = 'error'
-      message.value = t.rateLimited
-      break
-    default:
-      state.value = 'error'
-      message.value = t.failed
+  let result: OpenResult
+  if (turnstile) {
+    const token = await turnstile.token()
+    result = token ? await openDoor(value, token) : { status: 'captcha_failed' }
+    turnstile.reset() // tokens are single-use
+  } else {
+    result = await openDoor(value)
+  }
+
+  message.value = messageFor(result)
+  state.value = result.status === 'ok' ? 'success' : 'error'
+  if (result.status === 'ok') {
+    savePin(value)
+    hasSavedPin.value = true
+    resetTimer = setTimeout(() => {
+      state.value = 'idle'
+      message.value = ''
+    }, 8000)
+  } else if (result.status === 'wrong_pin') {
+    forgetPin()
   }
 }
 
 function changePin() {
-  savePin('')
-  hasSavedPin.value = false
-  pin.value = ''
+  forgetPin()
   state.value = 'idle'
   message.value = ''
 }
@@ -118,6 +143,8 @@ function changePin() {
           :placeholder="t.pinPlaceholder"
         />
       </div>
+
+      <div ref="captchaBox" class="captcha"></div>
 
       <button type="submit" class="open" :class="state" :disabled="!canOpen">
         <template v-if="state === 'loading'">{{ t.opening }}</template>
