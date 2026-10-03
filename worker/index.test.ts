@@ -35,11 +35,17 @@ function post(body: unknown, headers: Record<string, string> = {}): Request {
 
 const nukiOk = () => new Response(null, { status: 204 })
 
+/** Fakes only the retry sleeps; real async work (crypto) keeps running in real time. */
+const fakeSleeps = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
 /** Resolves a request that sleeps between retries, advancing fake timers until it settles. */
 async function settle(pending: Promise<Response>): Promise<Response> {
   let done = false
   void pending.then(() => (done = true), () => (done = true))
-  for (let i = 0; i < 50 && !done; i++) await vi.advanceTimersByTimeAsync(500)
+  while (!done) {
+    await vi.advanceTimersByTimeAsync(500)
+    await new Promise((r) => setImmediate(r)) // let real I/O (e.g. crypto.subtle) finish
+  }
   return pending
 }
 
@@ -249,7 +255,7 @@ describe('POST /api/open', () => {
   })
 
   it('retries on 5xx and then succeeds', async () => {
-    vi.useFakeTimers()
+    fakeSleeps()
     fetchMock.mockResolvedValueOnce(new Response('', { status: 503 })).mockResolvedValueOnce(nukiOk())
     const res = await settle(worker.fetch(post({ pin: PIN }), makeEnv()))
     expect(res.status).toBe(200)
@@ -257,7 +263,7 @@ describe('POST /api/open', () => {
   })
 
   it('returns 502 after repeated failures', async () => {
-    vi.useFakeTimers()
+    fakeSleeps()
     fetchMock.mockRejectedValue(new Error('network'))
     const res = await settle(worker.fetch(post({ pin: PIN }), makeEnv()))
     expect(res.status).toBe(502)
