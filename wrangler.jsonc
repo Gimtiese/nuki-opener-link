@@ -22,9 +22,11 @@
     }
   ],
 
-  // Your own domain. The DNS zone must be in the same Cloudflare account.
-  // Uncomment and replace; without it the page is served at <name>.<subdomain>.workers.dev.
+  // Your own domain: `npm run setup` fills this in. The DNS zone must be in the same
+  // Cloudflare account. Without a domain the page is served at <name>.<subdomain>.workers.dev.
+  // --- custom domain (managed by `npm run setup`) ---
   // "routes": [{ "pattern": "door.example.com", "custom_domain": true }],
+  // --- end custom domain ---
 
   // Optional: change the Nuki action (default 3 = Opener buzzer / Smart Lock unlatch).
   // "vars": { "NUKI_ACTION": "3" },

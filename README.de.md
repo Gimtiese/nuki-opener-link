@@ -24,64 +24,65 @@ Gebaut mit Vue 3 + TypeScript, kostenlos gehostet auf Cloudflare Workers.
 - Ein kostenloses [Cloudflare](https://dash.cloudflare.com/sign-up)-Konto, eine eigene Domain ist optional.
 - Node.js 20 oder neuer.
 
-## Einrichtung
+## Schnellstart
 
-### 1. Nuki-API-Token und Geräte-ID holen
+```bash
+git clone https://github.com/Gimtiese/nuki-opener-link.git
+cd nuki-opener-link
+npm install
+npm run setup
+```
 
-1. Auf [web.nuki.io](https://web.nuki.io) → **API** einen API-Token erzeugen.
-   Er braucht die Rechte, **Smartlocks zu lesen** und **Smartlock-Aktionen auszuführen**.
-2. Projekt holen und die ID deines Openers (Typ `Opener`) auflisten:
+Der Installer stellt ein paar Fragen und erledigt den Rest:
+
+1. Meldet dich bei Cloudflare an (ein Browserfenster öffnet sich).
+2. Fragt deinen Nuki-API-Token ab ([so erzeugst du ihn](#nuki-api-token)), prüft ihn und findet deinen Opener automatisch.
+3. Erzeugt einen zufälligen PIN für Besucher (oder du wählst einen).
+4. Fragt nach Sprache, Überschrift, Telefonnummern für Probleme und optional einer eigenen Domain.
+5. Baut die Seite, veröffentlicht sie, lädt die Secrets hoch und testet, ob alles funktioniert. Auf Wunsch klingelt er sogar einmal den Summer.
+
+Am Ende bekommst du die Adresse und einen Link mit vorausgefülltem PIN. Mit `npm run setup` änderst du die Einstellungen jederzeit.
+Erst mal nur ansehen? `npm run setup -- --dry-run` stellt alle Fragen, ändert aber nichts.
+
+### Nuki-API-Token
+
+1. [web.nuki.io](https://web.nuki.io) öffnen und mit dem Account anmelden, bei dem dein Opener registriert ist.
+2. Unter **API** einen Token erzeugen. Er braucht die Rechte, **Smartlocks zu lesen** und **Smartlock-Aktionen auszuführen**.
+3. Sofort kopieren, er wird nur einmal angezeigt. Im Installer einfügen, die Eingabe bleibt unsichtbar.
+
+Den Token nie in Befehle, Chats oder Dateien im Repo schreiben.
+
+## Manuelle Einrichtung
+
+Lieber von Hand? Das sind die Schritte, die `npm run setup` ausführt.
+
+1. Token wie oben erzeugen und mit `npm run smartlocks` deine Geräte auflisten. Die erste Spalte der Zeile mit `Opener` ist die `NUKI_SMARTLOCK_ID`.
+2. Optional: `cp .env.example .env` und bearbeiten (Titel, Sprache, Telefonnummern). Diese Werte landen beim Build in der öffentlichen Seite, **keine Secrets** eintragen.
+3. Optional: Für eine eigene Domain in [`wrangler.jsonc`](wrangler.jsonc) die Zeile `routes` einkommentieren und den Hostnamen eintragen. Die DNS-Zone muss im selben Cloudflare-Konto liegen; ohne Eintrag läuft die Seite unter einer `*.workers.dev`-Adresse.
+4. Deployen:
 
    ```bash
-   git clone https://github.com/Gimtiese/nuki-opener-link.git
-   cd nuki-opener-link
-   npm install
-   npm run smartlocks
+   npx wrangler login
+   npm run deploy
    ```
 
-### 2. Konfigurieren (optional)
+5. Die drei Secrets setzen. Jeder Befehl fragt den Wert ab (bei `Enter a secret value:` einfügen):
 
-`.env.example` nach `.env` kopieren, um Titel, Sprache und Telefonnummern zu setzen, die bei
-Problemen angezeigt werden. Diese Werte landen beim Build in der öffentlichen Seite, **keine Secrets** eintragen.
+   ```bash
+   npx wrangler secret put NUKI_API_TOKEN
+   npx wrangler secret put NUKI_SMARTLOCK_ID
+   npx wrangler secret put ACCESS_PIN
+   ```
 
-```bash
-cp .env.example .env
-```
+   | Secret | Wert |
+   | --- | --- |
+   | `NUKI_API_TOKEN` | Der Token von oben |
+   | `NUKI_SMARTLOCK_ID` | Die ID aus `npm run smartlocks` |
+   | `ACCESS_PIN` | Wählst du selbst, mindestens 5 Zeichen (6 oder mehr ist besser). Zufälliger 8-stelliger PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
 
-Für eine eigene Domain `routes` in [`wrangler.jsonc`](wrangler.jsonc) einkommentieren und den Hostnamen eintragen.
-Die DNS-Zone muss im selben Cloudflare-Konto liegen. Ohne Eintrag läuft die Seite unter einer `*.workers.dev`-Adresse.
+   Solange nicht alle drei gesetzt sind, antwortet die API mit `503 not_configured`.
 
-### 3. Deployen
-
-```bash
-npx wrangler login
-npm run deploy
-```
-
-Danach die drei Secrets setzen (der Wert wird abgefragt und nicht angezeigt).
-So kommst du an die Werte:
-
-| Secret | Woher |
-| --- | --- |
-| `NUKI_API_TOKEN` | [web.nuki.io](https://web.nuki.io) → **API** → Token mit Recht zum Lesen von Smartlocks und Ausführen von Aktionen erzeugen (Schritt 1). Sofort kopieren, er wird nur einmal angezeigt. |
-| `NUKI_SMARTLOCK_ID` | `npm run smartlocks` ausführen und die erste Spalte der Zeile mit `Opener` kopieren. |
-| `ACCESS_PIN` | Wählst du selbst, mindestens 5 Zeichen (6 oder mehr ist besser). Zufälligen 8-stelligen PIN erzeugen: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
-
-Bei der Abfrage `Enter a secret value:` den Wert einfügen und Enter drücken.
-
-```bash
-npx wrangler secret put NUKI_API_TOKEN
-npx wrangler secret put NUKI_SMARTLOCK_ID
-npx wrangler secret put ACCESS_PIN
-```
-
-`ACCESS_PIN` braucht **mindestens 5 Zeichen** (6 oder mehr ist besser), empfohlen sind nur Ziffern (am Handy erscheint ein Ziffernblock).
-Solange ein Secret fehlt, antwortet die API mit `503 not_configured`.
-
-### 4. Ausprobieren
-
-Seite öffnen, PIN eingeben, **Tür öffnen** tippen. Der Summer des Openers sollte ertönen.
-Bei Problemen siehe [Fehlersuche](#fehlersuche).
+6. Seite öffnen, PIN eingeben, **Tür öffnen** tippen. Der Summer des Openers sollte ertönen. Wenn nicht, siehe [Fehlersuche](#fehlersuche).
 
 ## Weitergeben
 

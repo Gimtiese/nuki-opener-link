@@ -31,68 +31,65 @@ Phone ──POST /api/open {pin}──▶ Cloudflare Worker ──POST api.nuki.
 - A free [Cloudflare](https://dash.cloudflare.com/sign-up) account. A custom domain is optional.
 - Node.js 20 or newer.
 
-## Setup
+## Quick start
 
-### 1. Get a Nuki API token and the device ID
+```bash
+git clone https://github.com/Gimtiese/nuki-opener-link.git
+cd nuki-opener-link
+npm install
+npm run setup
+```
 
-1. Open [web.nuki.io](https://web.nuki.io) → **API** → generate an API token.
-   Allow it to **read smartlocks** and to **execute smartlock actions**.
-2. Install and list your devices to find the Opener's ID (type `Opener`):
+The installer asks a few questions and does the rest:
+
+1. Logs you in to Cloudflare (a browser window opens).
+2. Asks for your Nuki API token ([how to create it](#nuki-api-token)), checks it and finds your Opener automatically.
+3. Creates a random PIN for visitors (or lets you choose one).
+4. Asks for language, heading, phone numbers for problems and an optional custom domain.
+5. Builds the page, deploys it, uploads the secrets and tests that everything works. It can even buzz the door once.
+
+At the end you get the address and a link with the PIN pre-filled. Run `npm run setup` again any time to change settings.
+Want to look first? `npm run setup -- --dry-run` asks all questions but changes nothing.
+
+### Nuki API token
+
+1. Open [web.nuki.io](https://web.nuki.io) and log in with the account your Opener is registered to.
+2. Go to **API** and generate a token. Allow it to **read smartlocks** and to **execute smartlock actions**.
+3. Copy it right away; it is shown only once. Paste it into the installer, which hides your input.
+
+Never put the token into commands, chats or files in the repo.
+
+## Manual setup
+
+Prefer to do it by hand? These are the steps `npm run setup` performs.
+
+1. Create the token as described above and run `npm run smartlocks` to list your devices. Copy the first column of the `Opener` line: that is `NUKI_SMARTLOCK_ID`.
+2. Optional: `cp .env.example .env` and edit it (title, language, phone numbers). These values are embedded into the public page at build time, so never put secrets there.
+3. Optional: for your own domain, uncomment the `routes` line in [`wrangler.jsonc`](wrangler.jsonc) and enter the hostname. The DNS zone must be in the same Cloudflare account; without it the page is served on a `*.workers.dev` address.
+4. Deploy:
 
    ```bash
-   git clone https://github.com/Gimtiese/nuki-opener-link.git
-   cd nuki-opener-link
-   npm install
-   npm run smartlocks
+   npx wrangler login
+   npm run deploy
    ```
 
-   Output example: `123456789	Opener	Front door`.
+5. Set the three secrets. Each command asks for the value (paste it when you see `Enter a secret value:`):
 
-### 2. Configure (optional)
+   ```bash
+   npx wrangler secret put NUKI_API_TOKEN
+   npx wrangler secret put NUKI_SMARTLOCK_ID
+   npx wrangler secret put ACCESS_PIN
+   ```
 
-Copy `.env.example` to `.env` to set a title, a language and phone numbers shown to visitors
-when something goes wrong. These values are embedded into the public page at build time,
-so never put secrets in `.env`.
+   | Secret | Value |
+   | --- | --- |
+   | `NUKI_API_TOKEN` | The token from above |
+   | `NUKI_SMARTLOCK_ID` | The ID from `npm run smartlocks` |
+   | `ACCESS_PIN` | You choose it, at least 5 characters (6 or more is better). A random 8-digit PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
 
-```bash
-cp .env.example .env
-```
+   Until all three are set, the API answers `503 not_configured`.
 
-For a custom domain, uncomment `routes` in [`wrangler.jsonc`](wrangler.jsonc) and enter your hostname.
-The DNS zone has to be in the same Cloudflare account. Without it, the page is served on a
-`*.workers.dev` address.
-
-### 3. Deploy
-
-```bash
-npx wrangler login
-npm run deploy
-```
-
-Then set the three secrets (each command asks for the value and does not echo it).
-Here is where each value comes from:
-
-| Secret | Where to get it |
-| --- | --- |
-| `NUKI_API_TOKEN` | [web.nuki.io](https://web.nuki.io) → **API** → generate a token with permission to read smartlocks and execute actions (step 1). Copy it right away; it is shown only once. |
-| `NUKI_SMARTLOCK_ID` | Run `npm run smartlocks` and copy the first column of the line that says `Opener`. |
-| `ACCESS_PIN` | You choose it, at least 5 characters (6 or more is better). To generate a random 8-digit PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
-
-When a command prompts `Enter a secret value:`, paste the value and press Enter.
-
-```bash
-npx wrangler secret put NUKI_API_TOKEN
-npx wrangler secret put NUKI_SMARTLOCK_ID
-npx wrangler secret put ACCESS_PIN
-```
-
-`ACCESS_PIN` must have **at least 5 characters** (6 or more is better); digits only are recommended, since
-the phone shows a numeric keypad. Until all secrets are set, the API answers with `503 not_configured`.
-
-### 4. Try it
-
-Open your page, enter the PIN, tap **Open door**. The buzzer of your Opener should sound.
-If nothing happens, see [Troubleshooting](#troubleshooting).
+6. Open your page, enter the PIN and tap **Open door**. The buzzer of your Opener should sound. If not, see [Troubleshooting](#troubleshooting).
 
 ## Handing it out
 
@@ -171,7 +168,8 @@ worker/index.ts      Worker: PIN check, rate limit, Nuki API call
 worker/index.test.ts Worker unit tests
 src/                 Vue 3 frontend (App.vue, i18n, API client, config)
 public/_headers      Security headers for the static assets
-scripts/             Helper to list your Nuki devices
+scripts/setup.mjs     Interactive installer (npm run setup)
+scripts/lib.mjs       Shared helpers, list-smartlocks.mjs lists your Nuki devices
 wrangler.jsonc       Cloudflare configuration
 ```
 
