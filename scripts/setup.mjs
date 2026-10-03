@@ -85,6 +85,17 @@ async function wranglerJson(args) {
   }
 }
 
+/** Names of the secrets the deployed Worker already has (empty before the first deploy). */
+async function existingSecrets() {
+  const { code, output } = await wrangler(['secret', 'list', '--format', 'json'], { capture: true })
+  if (code !== 0) return new Set()
+  try {
+    return new Set(JSON.parse(output.slice(output.indexOf('['))).map((s) => s.name))
+  } catch {
+    return new Set()
+  }
+}
+
 /* ---------- step 1: Cloudflare ---------- */
 
 /** Logs in if needed and returns account ID, API token and the workers.dev subdomain. */
@@ -329,11 +340,23 @@ step(1, t('Cloudflare-Anmeldung', 'Cloudflare login'))
 const cf = DRY_RUN ? { accountId: null, token: null, subdomain: '<subdomain>' } : await connectCloudflare()
 if (DRY_RUN) info(t('(übersprungen)', '(skipped)'))
 
+const deployed = await existingSecrets() // read-only, also in a dry run
+
 step(2, t('Nuki-Zugang und Gerät', 'Nuki access and device'))
-const { device, token: nukiToken } = await askNukiDevice()
+let nuki = null // null = keep the existing secrets
+if (!(deployed.has('NUKI_API_TOKEN') && deployed.has('NUKI_SMARTLOCK_ID') &&
+  (await confirm(t('Nuki-Zugang ist schon eingerichtet. Beibehalten?', 'Nuki access is already set up. Keep it?'))))) {
+  nuki = await askNukiDevice()
+}
 
 step(3, t('PIN für Besucher', 'PIN for visitors'))
-const { pin, generated } = await askPin()
+let pinChoice = null // null = keep the existing PIN
+if (!(deployed.has('ACCESS_PIN') &&
+  (await confirm(t('Es gibt schon einen PIN. Beibehalten? (Bei „n“ gilt der alte PIN sofort nicht mehr.)', 'A PIN already exists. Keep it? (With "n" the old PIN stops working at once.)'))))) {
+  pinChoice = await askPin()
+}
+const pin = pinChoice?.pin ?? null
+const generated = pinChoice?.generated ?? false
 
 step(4, t('Öffnungszeiten', 'Opening hours'))
 const { hours, timeZone } = await askOpenHours(managed.vars)
@@ -358,8 +381,8 @@ const useTurnstile = hostname !== null && (await confirm(t('Turnstile einschalte
 
 console.log(`\n${t('Zusammenfassung', 'Summary')}:`)
 const summary = [
-  [t('Gerät', 'Device'), `${deviceLabel(device)} "${device.name}"`],
-  ['PIN', `${generated ? t('zufällig erzeugt', 'randomly generated') : t('selbst gewählt', 'your own')} (${pin.length} ${t('Zeichen', 'characters')})`],
+  [t('Gerät', 'Device'), nuki ? `${deviceLabel(nuki.device)} "${nuki.device.name}"` : t('unverändert', 'unchanged')],
+  ['PIN', pin ? `${generated ? t('zufällig erzeugt', 'randomly generated') : t('selbst gewählt', 'your own')} (${pin.length} ${t('Zeichen', 'characters')})` : t('unverändert', 'unchanged')],
   [t('Öffnungszeiten', 'Opening hours'), hours ? `${formatOpenHours(parseOpenHours(hours))} (${timeZone})` : t('rund um die Uhr', 'around the clock')],
   [t('Sprache', 'Language'), siteLocale],
   [t('Telefon', 'Phone'), contacts.length ? contacts.map((c) => c.phone).join(', ') : t('keine', 'none')],
@@ -384,7 +407,9 @@ if (!(await confirm(`\n${t('Jetzt einrichten und veröffentlichen?', 'Set up and
 
 step(7, t('Veröffentlichen', 'Publishing'))
 
-const secrets = { NUKI_API_TOKEN: nukiToken, NUKI_SMARTLOCK_ID: String(device.smartlockId), ACCESS_PIN: pin }
+const secrets = {}
+if (nuki) Object.assign(secrets, { NUKI_API_TOKEN: nuki.token, NUKI_SMARTLOCK_ID: String(nuki.device.smartlockId) })
+if (pin) secrets.ACCESS_PIN = pin
 let siteKey = null
 if (useTurnstile) {
   const widget = await setupTurnstile(cf, hostname, currentEnv.VITE_TURNSTILE_SITE_KEY, name)
@@ -417,9 +442,11 @@ if ((await wrangler(['deploy'])).code !== 0) {
 }
 
 // Secrets go in via stdin so that they never appear in the process list or shell history.
-info(t('Lade die Secrets hoch …', 'Uploading the secrets …'))
-if ((await wrangler(['secret', 'bulk'], { input: JSON.stringify(secrets) })).code !== 0) {
-  fail(t('Die Secrets konnten nicht hochgeladen werden. „npm run setup“ erneut ausführen.', 'Uploading the secrets failed. Run "npm run setup" again.'))
+if (Object.keys(secrets).length) {
+  info(t('Lade die Secrets hoch …', 'Uploading the secrets …'))
+  if ((await wrangler(['secret', 'bulk'], { input: JSON.stringify(secrets) })).code !== 0) {
+    fail(t('Die Secrets konnten nicht hochgeladen werden. „npm run setup“ erneut ausführen.', 'Uploading the secrets failed. Run "npm run setup" again.'))
+  }
 }
 
 // The workers.dev subdomain may only exist after the first deploy.
@@ -432,7 +459,7 @@ const baseUrl = liveHost ? `https://${liveHost}` : null
 
 if (baseUrl && (await waitUntilLive(baseUrl))) {
   ok(t('Die Seite ist online und prüft den PIN.', 'The page is online and checks the PIN.'))
-  if (!siteKey && (await confirm(t('Türsummer jetzt testen? (löst wirklich aus)', 'Test the door buzzer now? (really triggers it)'), false))) {
+  if (!siteKey && pin && (await confirm(t('Türsummer jetzt testen? (löst wirklich aus)', 'Test the door buzzer now? (really triggers it)'), false))) {
     const { status, error } = await postOpen(baseUrl, pin).catch(() => ({ status: 0 }))
     if (status === 200) ok(t('Befehl an Nuki gesendet. Hat der Summer geklingelt?', 'Command sent to Nuki. Did the buzzer sound?'))
     else warn(t(`Antwort ${status} ${error ?? ''}. Details: npx wrangler tail, dann erneut versuchen.`, `Response ${status} ${error ?? ''}. Details: npx wrangler tail, then try again.`))
@@ -444,7 +471,7 @@ if (baseUrl && (await waitUntilLive(baseUrl))) {
 console.log(`\n\x1b[1m${t('Fertig!', 'Done!')}\x1b[0m`)
 if (baseUrl) {
   info(`${t('Seite', 'Page')}:  ${baseUrl}`)
-  info(`${t('Link mit PIN', 'Link with PIN')}:  ${baseUrl}/#pin=${encodeURIComponent(pin)}`)
+  if (pin) info(`${t('Link mit PIN', 'Link with PIN')}:  ${baseUrl}/#pin=${encodeURIComponent(pin)}`)
   if (siteKey) info(t('Teste den Button einmal im Browser.', 'Try the button once in your browser.'))
 }
 if (generated) info(`PIN:  ${pin}   ← ${t('jetzt notieren, er wird nicht noch einmal angezeigt', 'write it down now, it will not be shown again')}`)

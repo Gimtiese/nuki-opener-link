@@ -67,7 +67,7 @@ Den Token nie in eine Befehlszeile, einen Chat oder eine Datei im Repository sch
 | --- | --- |
 | Jemandem Zugang geben | Adresse und PIN schicken, oder den Link `https://deine-adresse/#pin=12345678`. Der PIN im Link erreicht nie einen Server und verschwindet aus der Adresszeile. Die Seite merkt ihn sich auf dem Handy. |
 | PIN ändern (Zugang entziehen) | `npx wrangler secret put ACCESS_PIN`. Wirkt sofort, alte PINs funktionieren nicht mehr. |
-| Zeiten, Telefonnummern, Domain, Turnstile ändern | `npm run setup` erneut ausführen. Deine aktuellen Einstellungen sind vorausgefüllt. |
+| Zeiten, Telefonnummern, Domain, Turnstile ändern | `npm run setup` erneut ausführen. Aktuelle Einstellungen sind vorausgefüllt; Nuki-Zugang und PIN bleiben, wenn du nichts anderes wählst. |
 | Zusehen, was passiert | `npx wrangler tail` zeigt Live-Logs, auch falsche PINs und Sperren. |
 | Auf neue Version aktualisieren | `git pull && npm install && npm run setup` |
 
