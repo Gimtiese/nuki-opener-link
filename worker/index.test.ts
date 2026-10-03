@@ -110,6 +110,12 @@ describe('POST /api/open', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('accepts a PIN with exactly the minimum length', async () => {
+    fetchMock.mockResolvedValue(nukiOk())
+    const res = await worker.fetch(post({ pin: '12345' }), makeEnv({ ACCESS_PIN: '12345' }))
+    expect(res.status).toBe(200)
+  })
+
   it('returns 429 when rate limited, before checking the PIN', async () => {
     const limit = vi.fn(async () => ({ success: false }))
     const res = await worker.fetch(post({ pin: PIN }), makeEnv({ RATE_LIMITER: { limit } as unknown as RateLimit }))

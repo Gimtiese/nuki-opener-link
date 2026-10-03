@@ -76,7 +76,7 @@ Here is where each value comes from:
 | --- | --- |
 | `NUKI_API_TOKEN` | [web.nuki.io](https://web.nuki.io) → **API** → generate a token with permission to read smartlocks and execute actions (step 1). Copy it right away; it is shown only once. |
 | `NUKI_SMARTLOCK_ID` | Run `NUKI_API_TOKEN=your-token npm run smartlocks` and copy the first column of the line that says `Opener`. |
-| `ACCESS_PIN` | You choose it, at least 6 characters. To generate a random 8-digit PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
+| `ACCESS_PIN` | You choose it, at least 5 characters (6 or more is better). To generate a random 8-digit PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
 
 When a command prompts `Enter a secret value:`, paste the value and press Enter.
 
@@ -86,7 +86,7 @@ npx wrangler secret put NUKI_SMARTLOCK_ID
 npx wrangler secret put ACCESS_PIN
 ```
 
-`ACCESS_PIN` must have **at least 6 characters**; digits only are recommended, since
+`ACCESS_PIN` must have **at least 5 characters** (6 or more is better); digits only are recommended, since
 the phone shows a numeric keypad. Until all secrets are set, the API answers with `503 not_configured`.
 
 ### 4. Try it
@@ -116,7 +116,7 @@ Devices with the old PIN are asked for the new one on their next attempt.
 | --- | --- | --- |
 | `NUKI_API_TOKEN` | Worker secret | Nuki Web API token |
 | `NUKI_SMARTLOCK_ID` | Worker secret | From `npm run smartlocks` |
-| `ACCESS_PIN` | Worker secret | At least 6 characters |
+| `ACCESS_PIN` | Worker secret | At least 5 characters |
 | `NUKI_ACTION` | Worker var (optional) | Default `3`: Opener buzzer. On a Smart Lock `3` is *unlatch* (other values: 1 unlock, 2 lock, 4 lock'n'go, 5 lock'n'go with unlatch). Uncomment `vars` in `wrangler.jsonc` to change it |
 | `RATE_LIMITER` | `ratelimits` in `wrangler.jsonc` | Default: 10 requests / minute / IP |
 | `VITE_SITE_TITLE` | `.env` (build time) | Heading and browser title |
@@ -142,7 +142,7 @@ but you decide whether it fits your situation.
 
 - The Opener only triggers the **door buzzer** (typically the building entrance). It does not unlock your apartment door.
 - The Nuki token and the PIN exist only as Worker secrets, never in the page.
-- The PIN is compared in constant time. Requests are limited per IP (10/min by default), which makes guessing a 6-digit PIN impractical for a single attacker, though not impossible for a distributed one. **Use a long, random PIN** and rotate it if it leaks.
+- The PIN is compared in constant time. Requests are limited per IP (10/min by default), which slows guessing down: a 5-digit PIN has 100,000 combinations, so a single IP address needs about a week, a distributed attacker much less. **Prefer a longer, random PIN (8 digits or more)** and rotate it if it leaks.
 - Every request needs a same-origin `Origin` header (when sent) and the correct PIN; wrong or malformed requests never reach the Nuki API.
 - The page is served with a strict Content-Security-Policy, no framing, no referrer and `noindex`.
 - The remembered PIN sits in the browser's `localStorage` on the visitor's device. Do not hand the PIN to people you do not trust with the door.
@@ -158,7 +158,7 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 | Same, with HTTP 404 | Wrong `NUKI_SMARTLOCK_ID` (use `npm run smartlocks`) |
 | Same, with HTTP 5xx or timeouts | Nuki cloud outage; the Worker already retried 3 times |
 | Page says success but the buzzer is silent | Bridge or Opener offline or out of Bluetooth range; check the device in the Nuki app |
-| `503 not_configured` | A secret is missing, `ACCESS_PIN` is shorter than 6 characters, or `NUKI_ACTION` is not 1-5 |
+| `503 not_configured` | A secret is missing, `ACCESS_PIN` is shorter than 5 characters, or `NUKI_ACTION` is not 1-5 |
 | "Too many attempts" | Rate limit hit; wait a minute |
 | `ratelimits` rejected on deploy | Remove the `ratelimits` block (the Worker then runs without rate limiting; use a long PIN) |
 

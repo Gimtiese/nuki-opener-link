@@ -65,7 +65,7 @@ So kommst du an die Werte:
 | --- | --- |
 | `NUKI_API_TOKEN` | [web.nuki.io](https://web.nuki.io) → **API** → Token mit Recht zum Lesen von Smartlocks und Ausführen von Aktionen erzeugen (Schritt 1). Sofort kopieren, er wird nur einmal angezeigt. |
 | `NUKI_SMARTLOCK_ID` | `NUKI_API_TOKEN=dein-token npm run smartlocks` ausführen und die erste Spalte der Zeile mit `Opener` kopieren. |
-| `ACCESS_PIN` | Wählst du selbst, mindestens 6 Zeichen. Zufälligen 8-stelligen PIN erzeugen: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
+| `ACCESS_PIN` | Wählst du selbst, mindestens 5 Zeichen (6 oder mehr ist besser). Zufälligen 8-stelligen PIN erzeugen: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
 
 Bei der Abfrage `Enter a secret value:` den Wert einfügen und Enter drücken.
 
@@ -75,7 +75,7 @@ npx wrangler secret put NUKI_SMARTLOCK_ID
 npx wrangler secret put ACCESS_PIN
 ```
 
-`ACCESS_PIN` braucht **mindestens 6 Zeichen**, empfohlen sind nur Ziffern (am Handy erscheint ein Ziffernblock).
+`ACCESS_PIN` braucht **mindestens 5 Zeichen** (6 oder mehr ist besser), empfohlen sind nur Ziffern (am Handy erscheint ein Ziffernblock).
 Solange ein Secret fehlt, antwortet die API mit `503 not_configured`.
 
 ### 4. Ausprobieren
@@ -103,7 +103,7 @@ Geräte mit dem alten PIN werden beim nächsten Versuch nach dem neuen gefragt.
 | --- | --- | --- |
 | `NUKI_API_TOKEN` | Worker-Secret | Nuki-Web-API-Token |
 | `NUKI_SMARTLOCK_ID` | Worker-Secret | aus `npm run smartlocks` |
-| `ACCESS_PIN` | Worker-Secret | mindestens 6 Zeichen |
+| `ACCESS_PIN` | Worker-Secret | mindestens 5 Zeichen |
 | `NUKI_ACTION` | Worker-Variable (optional) | Standard `3`: Opener-Summer. Beim Smart Lock bedeutet `3` *Falle öffnen* (1 entriegeln, 2 verriegeln, 4 Lock’n’Go, 5 Lock’n’Go mit Falle). In `wrangler.jsonc` unter `vars` einkommentieren |
 | `RATE_LIMITER` | `ratelimits` in `wrangler.jsonc` | Standard: 10 Anfragen / Minute / IP |
 | `VITE_SITE_TITLE` | `.env` (Build) | Überschrift und Browser-Titel |
@@ -127,7 +127,7 @@ Wer den PIN kennt, kann deinen Eingang öffnen. Das Design begrenzt das Risiko, 
 
 - Der Opener löst nur den **Türsummer** aus (meist Hauseingang), nicht deine Wohnungstür.
 - Nuki-Token und PIN existieren nur als Worker-Secrets, nie in der Seite.
-- Der PIN wird in konstanter Zeit verglichen. Anfragen sind pro IP begrenzt (standardmäßig 10/Minute). Für einen einzelnen Angreifer macht das Raten eines 6-stelligen PINs unpraktikabel, für verteilte Angriffe nicht unmöglich. **Nimm einen langen, zufälligen PIN** und tausche ihn aus, falls er bekannt wird.
+- Der PIN wird in konstanter Zeit verglichen. Anfragen sind pro IP begrenzt (standardmäßig 10/Minute). Das bremst das Raten: Ein 5-stelliger PIN hat 100.000 Kombinationen, eine einzelne IP braucht dafür etwa eine Woche, ein verteilter Angriff deutlich weniger. **Nimm besser einen längeren, zufälligen PIN (8 Ziffern oder mehr)** und tausche ihn aus, falls er bekannt wird.
 - Falsche oder fehlerhafte Anfragen erreichen die Nuki API nie.
 - Die Seite wird mit strenger Content-Security-Policy, ohne Framing, ohne Referrer und mit `noindex` ausgeliefert.
 - Der gemerkte PIN liegt im `localStorage` des Besuchergeräts. Gib den PIN nur Personen, denen du den Eingang anvertraust.
@@ -143,7 +143,7 @@ Sicherheitslücke gefunden? Siehe [SECURITY.md](SECURITY.md).
 | Dasselbe mit HTTP 404 | Falsche `NUKI_SMARTLOCK_ID` (mit `npm run smartlocks` prüfen) |
 | Dasselbe mit HTTP 5xx oder Timeouts | Störung der Nuki-Cloud; der Worker hat schon 3-mal wiederholt |
 | Seite meldet Erfolg, Summer bleibt still | Bridge oder Opener offline bzw. außer Bluetooth-Reichweite; Gerät in der Nuki-App prüfen |
-| `503 not_configured` | Secret fehlt, `ACCESS_PIN` kürzer als 6 Zeichen oder `NUKI_ACTION` nicht 1-5 |
+| `503 not_configured` | Secret fehlt, `ACCESS_PIN` kürzer als 5 Zeichen oder `NUKI_ACTION` nicht 1-5 |
 | „Zu viele Versuche“ | Rate-Limit erreicht, eine Minute warten |
 | `ratelimits` beim Deploy abgelehnt | Block `ratelimits` entfernen (der Worker läuft dann ohne Rate-Limit; langen PIN nutzen) |
 

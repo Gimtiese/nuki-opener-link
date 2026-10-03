@@ -19,7 +19,7 @@ export interface Env {
 
 const NUKI_API = 'https://api.nuki.io'
 const DEFAULT_NUKI_ACTION = 3
-const MIN_PIN_LENGTH = 6
+const MIN_PIN_LENGTH = 5
 const MAX_BODY_BYTES = 1024
 const NUKI_ATTEMPTS = 3
 const NUKI_TIMEOUT_MS = 6000
