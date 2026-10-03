@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nuki-opener-link",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+
+  // The built Vue app is served as static assets (free, no Worker invocation).
+  // Only /api/* runs through the Worker.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Brute-force protection: at most 10 requests per minute per IP address.
+  "ratelimits": [
+    {
+      "name": "RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+
+  // Your own domain. The DNS zone must be in the same Cloudflare account.
+  // Uncomment and replace; without it the page is served at <name>.<subdomain>.workers.dev.
+  // "routes": [{ "pattern": "door.example.com", "custom_domain": true }],
+
+  // Optional: change the Nuki action (default 3 = Opener buzzer / Smart Lock unlatch).
+  // "vars": { "NUKI_ACTION": "3" },
+
+  "observability": { "enabled": true }
+
+  // Secrets are NOT set here. Use:
+  //   npx wrangler secret put NUKI_API_TOKEN
+  //   npx wrangler secret put NUKI_SMARTLOCK_ID
+  //   npx wrangler secret put ACCESS_PIN
+}

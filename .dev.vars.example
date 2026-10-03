@@ -1,0 +1,4 @@
+# Copy to .dev.vars for `npm run preview` / `npm run dev:worker`. Never commit .dev.vars.
+NUKI_API_TOKEN=your-nuki-web-api-token
+NUKI_SMARTLOCK_ID=123456789
+ACCESS_PIN=123456
