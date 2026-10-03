@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { openDoor, type OpenResult } from './api'
-import { contacts, PIN_STORAGE_KEY, siteTitle, turnstileSiteKey } from './config'
+import { contacts, PIN_STORAGE_KEY, REPO_URL, siteTitle, turnstileSiteKey } from './config'
 import { fill, formatDuration, getMessages, resolveLocale } from './i18n'
 import { createTurnstile, type Turnstile } from './turnstile'
 
@@ -157,13 +157,18 @@ function changePin() {
       <button v-if="hasSavedPin" type="button" class="link" @click="changePin">{{ t.changePin }}</button>
     </form>
 
-    <footer v-if="contacts.length">
-      <p>{{ t.problems }}</p>
-      <ul>
-        <li v-for="c in contacts" :key="c.href">
-          <a :href="c.href">📞 {{ c.label ? `${c.label}: ` : '' }}{{ c.phone }}</a>
-        </li>
-      </ul>
+    <footer>
+      <section v-if="contacts.length" class="contacts">
+        <p>{{ t.problems }}</p>
+        <ul>
+          <li v-for="c in contacts" :key="c.href">
+            <a :href="c.href">📞 {{ c.label ? `${c.label}: ` : '' }}{{ c.phone }}</a>
+          </li>
+        </ul>
+      </section>
+      <p class="repo">
+        <a :href="REPO_URL" target="_blank" rel="noopener noreferrer">{{ t.sourceCode }}</a>
+      </p>
     </footer>
   </main>
 </template>

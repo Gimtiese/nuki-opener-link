@@ -21,6 +21,7 @@ export interface Messages {
   failed: string
   changePin: string
   problems: string
+  sourceCode: string
   seconds: (n: number) => string
   minutes: (n: number) => string
 }
@@ -44,6 +45,7 @@ const messages: Record<Locale, Messages> = {
     failed: 'The door could not be opened right now. Please try again or call.',
     changePin: 'Change PIN',
     problems: 'Not working? Please call:',
+    sourceCode: 'Open source on GitHub',
     seconds: (n) => (n === 1 ? '1 second' : `${n} seconds`),
     minutes: (n) => (n === 1 ? '1 minute' : `${n} minutes`),
   },
@@ -65,6 +67,7 @@ const messages: Record<Locale, Messages> = {
     failed: 'Die Tür konnte gerade nicht geöffnet werden. Bitte noch einmal versuchen oder anrufen.',
     changePin: 'PIN ändern',
     problems: 'Klappt etwas nicht? Bitte anrufen:',
+    sourceCode: 'Open Source auf GitHub',
     seconds: (n) => (n === 1 ? '1 Sekunde' : `${n} Sekunden`),
     minutes: (n) => (n === 1 ? '1 Minute' : `${n} Minuten`),
   },

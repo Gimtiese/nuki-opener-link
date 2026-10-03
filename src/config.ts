@@ -7,6 +7,7 @@ export interface Contact {
 }
 
 export const PIN_STORAGE_KEY = 'door.pin'
+export const REPO_URL = 'https://github.com/Gimtiese/nuki-opener-link'
 
 /** Parses the JSON from VITE_CONTACTS; invalid or missing input yields no contacts. */
 export function parseContacts(raw: string | undefined): Contact[] {

@@ -99,10 +99,10 @@ input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
   cursor: pointer;
 }
 
-footer { margin-top: auto; color: var(--muted); }
+footer { margin-top: auto; color: var(--muted); display: flex; flex-direction: column; gap: 1.25rem; }
 footer p { margin: 0 0 0.5rem; }
 footer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-footer a {
+.contacts a {
   display: block;
   padding: 0.85rem 1rem;
   border: 2px solid var(--border);
@@ -113,4 +113,7 @@ footer a {
   text-decoration: none;
   font-size: 1.1rem;
 }
-footer a:focus-visible { outline: 3px solid var(--accent); }
+.contacts a:focus-visible { outline: 3px solid var(--accent); }
+.repo { margin: 0; text-align: center; font-size: 0.8rem; }
+.repo a { color: var(--muted); text-decoration: underline; }
+.repo a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
