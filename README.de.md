@@ -36,7 +36,7 @@ Gebaut mit Vue 3 + TypeScript, kostenlos gehostet auf Cloudflare Workers.
    git clone https://github.com/Gimtiese/nuki-opener-link.git
    cd nuki-opener-link
    npm install
-   NUKI_API_TOKEN=dein-token npm run smartlocks
+   npm run smartlocks
    ```
 
 ### 2. Konfigurieren (optional)
@@ -64,7 +64,7 @@ So kommst du an die Werte:
 | Secret | Woher |
 | --- | --- |
 | `NUKI_API_TOKEN` | [web.nuki.io](https://web.nuki.io) → **API** → Token mit Recht zum Lesen von Smartlocks und Ausführen von Aktionen erzeugen (Schritt 1). Sofort kopieren, er wird nur einmal angezeigt. |
-| `NUKI_SMARTLOCK_ID` | `NUKI_API_TOKEN=dein-token npm run smartlocks` ausführen und die erste Spalte der Zeile mit `Opener` kopieren. |
+| `NUKI_SMARTLOCK_ID` | `npm run smartlocks` ausführen und die erste Spalte der Zeile mit `Opener` kopieren. |
 | `ACCESS_PIN` | Wählst du selbst, mindestens 5 Zeichen (6 oder mehr ist besser). Zufälligen 8-stelligen PIN erzeugen: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
 
 Bei der Abfrage `Enter a secret value:` den Wert einfügen und Enter drücken.

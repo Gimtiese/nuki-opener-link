@@ -43,7 +43,7 @@ Phone ──POST /api/open {pin}──▶ Cloudflare Worker ──POST api.nuki.
    git clone https://github.com/Gimtiese/nuki-opener-link.git
    cd nuki-opener-link
    npm install
-   NUKI_API_TOKEN=your-token npm run smartlocks
+   npm run smartlocks
    ```
 
    Output example: `123456789	Opener	Front door`.
@@ -75,7 +75,7 @@ Here is where each value comes from:
 | Secret | Where to get it |
 | --- | --- |
 | `NUKI_API_TOKEN` | [web.nuki.io](https://web.nuki.io) → **API** → generate a token with permission to read smartlocks and execute actions (step 1). Copy it right away; it is shown only once. |
-| `NUKI_SMARTLOCK_ID` | Run `NUKI_API_TOKEN=your-token npm run smartlocks` and copy the first column of the line that says `Opener`. |
+| `NUKI_SMARTLOCK_ID` | Run `npm run smartlocks` and copy the first column of the line that says `Opener`. |
 | `ACCESS_PIN` | You choose it, at least 5 characters (6 or more is better). To generate a random 8-digit PIN: `node -e "const c=require('node:crypto');console.log(String(c.randomInt(0,1e8)).padStart(8,'0'))"` |
 
 When a command prompts `Enter a secret value:`, paste the value and press Enter.
