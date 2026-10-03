@@ -140,7 +140,7 @@ Sicherheitslücke gefunden? Siehe [SECURITY.md](SECURITY.md).
 | Symptom | Wahrscheinliche Ursache |
 | --- | --- |
 | „Die Tür konnte gerade nicht geöffnet werden“ und `Nuki API rejected the request: HTTP 401/403` in `npx wrangler tail` | Token ungültig oder ohne Recht, Aktionen auszuführen |
-| Dasselbe mit HTTP 404 | Falsche `NUKI_SMARTLOCK_ID` (mit `npm run smartlocks` prüfen) |
+| Dasselbe mit HTTP 400 oder 404 | Falsche `NUKI_SMARTLOCK_ID`: die Nummer aus `npm run smartlocks` verwenden, nicht die in der App angezeigte Geräte-ID, und der Token muss zu dem Account gehören, bei dem der Opener registriert ist |
 | Dasselbe mit HTTP 5xx oder Timeouts | Störung der Nuki-Cloud; der Worker hat schon 3-mal wiederholt |
 | Seite meldet Erfolg, Summer bleibt still | Bridge oder Opener offline bzw. außer Bluetooth-Reichweite; Gerät in der Nuki-App prüfen |
 | `503 not_configured` | Secret fehlt, `ACCESS_PIN` kürzer als 5 Zeichen oder `NUKI_ACTION` nicht 1-5 |

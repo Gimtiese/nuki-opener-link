@@ -155,7 +155,7 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 | Symptom | Likely cause |
 | --- | --- |
 | "The door could not be opened right now" and `Nuki API rejected the request: HTTP 401/403` in `npx wrangler tail` | Token invalid or missing the permission to execute actions |
-| Same, with HTTP 404 | Wrong `NUKI_SMARTLOCK_ID` (use `npm run smartlocks`) |
+| Same, with HTTP 400 or 404 | Wrong `NUKI_SMARTLOCK_ID`: use the number from `npm run smartlocks`, not the device ID printed in the app, and make sure the token belongs to the account the Opener is registered with |
 | Same, with HTTP 5xx or timeouts | Nuki cloud outage; the Worker already retried 3 times |
 | Page says success but the buzzer is silent | Bridge or Opener offline or out of Bluetooth range; check the device in the Nuki app |
 | `503 not_configured` | A secret is missing, `ACCESS_PIN` is shorter than 5 characters, or `NUKI_ACTION` is not 1-5 |

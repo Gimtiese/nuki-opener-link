@@ -66,6 +66,18 @@ describe('POST /api/open', () => {
     expect(JSON.parse(init?.body as string)).toEqual({ action: 3 })
   })
 
+  it('trims whitespace from pasted secrets', async () => {
+    fetchMock.mockResolvedValue(nukiOk())
+    const res = await worker.fetch(
+      post({ pin: PIN }),
+      makeEnv({ NUKI_API_TOKEN: 'token\n', NUKI_SMARTLOCK_ID: ' 123 \n', ACCESS_PIN: `${PIN}\n` }),
+    )
+    expect(res.status).toBe(200)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://api.nuki.io/smartlock/123/action')
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer token')
+  })
+
   it('honours NUKI_ACTION', async () => {
     fetchMock.mockResolvedValue(nukiOk())
     await worker.fetch(post({ pin: PIN }), makeEnv({ NUKI_ACTION: '1' }))

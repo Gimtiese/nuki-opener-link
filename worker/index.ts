@@ -53,6 +53,16 @@ function resolveAction(env: Env): number | null {
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null
 }
 
+/** Secrets are often pasted with a trailing newline or space; strip that so it cannot break auth or URLs. */
+function cleanEnv(env: Env): Env {
+  return {
+    ...env,
+    NUKI_API_TOKEN: env.NUKI_API_TOKEN?.trim() ?? '',
+    NUKI_SMARTLOCK_ID: env.NUKI_SMARTLOCK_ID?.trim() ?? '',
+    ACCESS_PIN: env.ACCESS_PIN?.trim() ?? '',
+  }
+}
+
 function isConfigured(env: Env): boolean {
   return Boolean(
     env.NUKI_API_TOKEN &&
@@ -81,8 +91,9 @@ async function triggerNuki(env: Env, action: number): Promise<boolean> {
       })
       if (res.ok) return true
       if (res.status !== 429 && res.status < 500) {
-        // 401/403: token or scopes wrong. 404: wrong smartlock ID. Retrying will not help.
-        console.error(`Nuki API rejected the request: HTTP ${res.status}`)
+        // 400: bad parameter (usually a wrong smartlock ID). 401/403: token or scopes wrong. Retrying will not help.
+        const detail = (await res.text().catch(() => '')).slice(0, 200)
+        console.error(`Nuki API rejected the request: HTTP ${res.status} ${detail}`.trim())
         return false
       }
       console.error(`Nuki API error: HTTP ${res.status} (attempt ${attempt}/${NUKI_ATTEMPTS})`)
@@ -118,7 +129,8 @@ async function readPin(request: Request): Promise<string | null> {
   return null
 }
 
-async function handleOpen(request: Request, env: Env): Promise<Response> {
+async function handleOpen(request: Request, rawEnv: Env): Promise<Response> {
+  const env = cleanEnv(rawEnv)
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
   if (!sameOrigin(request)) return json({ error: 'forbidden' }, 403)
 
