@@ -81,6 +81,8 @@ function messageFor(result: OpenResult): string {
       return fill(t.closed, { hours: result.openHours })
     case 'captcha_failed':
       return t.captchaFailed
+    case 'country_blocked':
+      return t.countryBlocked
     default:
       return t.failed
   }

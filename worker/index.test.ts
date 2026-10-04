@@ -210,6 +210,7 @@ describe('POST /api/open', () => {
       { ACCESS_PIN: '1234' },
       { NUKI_ACTION: '9' },
       { OPEN_HOURS: 'whenever' },
+      { ALLOWED_COUNTRIES: 'Germany' },
       { OPEN_HOURS: '07:00-21:00' }, // TIMEZONE missing
       { OPEN_HOURS: '07:00-21:00', TIMEZONE: 'Mars/Base' },
       { GUARD: undefined as unknown as Env['GUARD'] },
@@ -232,6 +233,42 @@ describe('POST /api/open', () => {
     expect(res.status).toBe(429)
     expect(limit).toHaveBeenCalledWith({ key: '198.51.100.7' })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  describe('country restriction', () => {
+    const inCountry = (country: string) => post({ pin: PIN }, { 'cf-ipcountry': country })
+
+    it('lets allowed countries through (case-insensitive) and refuses others before any counting', async () => {
+      fetchMock.mockResolvedValue(nukiOk())
+      const env = makeEnv({ ALLOWED_COUNTRIES: 'de, at' })
+      expect((await worker.fetch(inCountry('de'), env)).status).toBe(200)
+      for (let i = 0; i < 40; i++) {
+        const res = await worker.fetch(post({ pin: '000000' }, { 'cf-ipcountry': 'RU' }), env)
+        expect(res.status).toBe(403)
+        expect(await res.json()).toEqual({ error: 'country_blocked' })
+      }
+      // 40 refused attempts from abroad did not lock the door for everyone
+      expect((await worker.fetch(post({ pin: '000000' }, { 'cf-ipcountry': 'AT' }), env)).status).toBe(401)
+    })
+
+    it('refuses unknown or missing countries when a list is set', async () => {
+      const env = makeEnv({ ALLOWED_COUNTRIES: 'DE' })
+      expect((await worker.fetch(inCountry('XX'), env)).status).toBe(403)
+      expect((await worker.fetch(inCountry('T1'), env)).status).toBe(403)
+      expect((await worker.fetch(post({ pin: PIN }), env)).status).toBe(403)
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('prefers the country from request.cf', async () => {
+      const req = post({ pin: PIN }, { 'cf-ipcountry': 'DE' })
+      Object.defineProperty(req, 'cf', { value: { country: 'US' } })
+      expect((await worker.fetch(req, makeEnv({ ALLOWED_COUNTRIES: 'DE' }))).status).toBe(403)
+    })
+
+    it('does not restrict when the list is empty', async () => {
+      fetchMock.mockResolvedValue(nukiOk())
+      expect((await worker.fetch(inCountry('RU'), makeEnv({ ALLOWED_COUNTRIES: '' }))).status).toBe(200)
+    })
   })
 
   describe('opening hours', () => {

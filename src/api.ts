@@ -6,6 +6,7 @@ export type OpenResult =
   | { status: 'rate_limited'; retryAfter: number }
   | { status: 'closed'; openHours: string }
   | { status: 'captcha_failed' }
+  | { status: 'country_blocked' }
   | { status: 'error' }
 
 const REQUEST_TIMEOUT_MS = 20000
@@ -43,6 +44,8 @@ export async function openDoor(pin: string, turnstile?: string): Promise<OpenRes
         return { status: 'closed', openHours: body.open_hours ?? '' }
       case 'captcha_failed':
         return { status: 'captcha_failed' }
+      case 'country_blocked':
+        return { status: 'country_blocked' }
       default:
         return { status: 'error' }
     }

@@ -3,10 +3,11 @@
  * POST /api/open, which checks the PIN and triggers the Nuki Opener via the Nuki Web API.
  *
  * Order of checks for POST /api/open:
- *   method → origin → configuration → per-IP rate limit → JSON body → opening hours
+ *   method → origin → configuration → country → per-IP rate limit → JSON body → opening hours
  *   → Turnstile (if enabled) → PIN + global brute-force guard (Durable Object) → Nuki API
  */
 
+import { parseCountries } from '../shared/countries.js'
 import { formatOpenHours, isOpenAt, isValidTimeZone, minutesInZone, parseOpenHours } from '../shared/hours.js'
 import type { Guard } from './guard'
 
@@ -30,6 +31,8 @@ export interface Env {
   OPEN_HOURS?: string
   /** Var, required with OPEN_HOURS: IANA time zone, e.g. "Europe/Berlin". */
   TIMEZONE?: string
+  /** Optional var: allowed countries (ISO codes), e.g. "DE" or "DE,AT,CH". Empty = from anywhere. */
+  ALLOWED_COUNTRIES?: string
   /** Optional secret: Cloudflare Turnstile secret key. When set, every attempt needs a valid Turnstile token. */
   TURNSTILE_SECRET_KEY?: string
 }
@@ -101,6 +104,7 @@ function cleanEnv(env: Env): Env {
     ACCESS_PIN: env.ACCESS_PIN?.trim() ?? '',
     OPEN_HOURS: env.OPEN_HOURS?.trim() ?? '',
     TIMEZONE: env.TIMEZONE?.trim() ?? '',
+    ALLOWED_COUNTRIES: env.ALLOWED_COUNTRIES?.trim() ?? '',
     TURNSTILE_SECRET_KEY: env.TURNSTILE_SECRET_KEY?.trim() ?? '',
   }
 }
@@ -114,6 +118,7 @@ function configProblem(env: Env): string | null {
   if (env.ACCESS_PIN.length < MIN_PIN_LENGTH) return `ACCESS_PIN must have at least ${MIN_PIN_LENGTH} characters`
   if (resolveAction(env) === null) return 'NUKI_ACTION must be a number from 1 to 5'
   if (parseOpenHours(env.OPEN_HOURS) === null) return `OPEN_HOURS "${env.OPEN_HOURS}" is invalid, expected e.g. "07:00-21:00"`
+  if (parseCountries(env.ALLOWED_COUNTRIES) === null) return `ALLOWED_COUNTRIES "${env.ALLOWED_COUNTRIES}" is invalid, expected e.g. "DE" or "DE,AT,CH"`
   if (env.OPEN_HOURS && !isValidTimeZone(env.TIMEZONE)) return 'TIMEZONE must be a valid IANA time zone (e.g. "Europe/Berlin") when OPEN_HOURS is set'
   return null
 }
@@ -232,6 +237,13 @@ async function handleOpen(request: Request, rawEnv: Env): Promise<Response> {
   if (problem) {
     console.error(`Not configured: ${problem}.`)
     return json({ error: 'not_configured' }, 503)
+  }
+
+  // Country restriction first, so that attempts from abroad never count towards the brute-force locks.
+  const allowedCountries = parseCountries(env.ALLOWED_COUNTRIES) ?? []
+  if (allowedCountries.length) {
+    const country = (request.cf?.country ?? request.headers.get('cf-ipcountry') ?? '').toString().toUpperCase()
+    if (!allowedCountries.includes(country)) return json({ error: 'country_blocked' }, 403)
   }
 
   const ip = request.headers.get('cf-connecting-ip')

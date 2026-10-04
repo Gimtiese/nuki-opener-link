@@ -32,8 +32,8 @@
   // Domain and opening hours. `npm run setup` writes this block; you can also edit it by hand.
   // - routes: your own domain; its DNS zone must be in the same Cloudflare account.
   //   With a domain, the *.workers.dev address is switched off.
-  // - vars: OPEN_HOURS ("07:00-21:00", several ranges with commas) and TIMEZONE ("Europe/Berlin").
-  //   Optional NUKI_ACTION (default 3 = Opener buzzer / Smart Lock unlatch).
+  // - vars: OPEN_HOURS ("07:00-21:00", several ranges with commas) and TIMEZONE ("Europe/Berlin"),
+  //   ALLOWED_COUNTRIES ("DE" or "DE,AT,CH"), optional NUKI_ACTION (default 3 = Opener buzzer).
   // --- managed by `npm run setup` ---
   // "routes": [{ "pattern": "door.example.com", "custom_domain": true }],
   // "vars": { "OPEN_HOURS": "06:00-22:00", "TIMEZONE": "Europe/Berlin" },

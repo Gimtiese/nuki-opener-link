@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseCountries, serializeCountries } from '../shared/countries.js'
 import { formatOpenHours, isValidTimeZone, parseOpenHours, serializeOpenHours } from '../shared/hours.js'
 import {
   ask,
@@ -291,6 +292,26 @@ async function setupTurnstile(cf, hostname, existingSiteKey, name) {
   return null
 }
 
+/** Asks which countries may open the door. Returns '' for no restriction. */
+async function askCountries(current) {
+  info(t('Cloudflare erkennt das Herkunftsland jedes Besuchs. Andere Länder sehen nur deine Telefonnummern.', 'Cloudflare detects the country of every visit. Visitors from other countries only see your phone numbers.'))
+  info(t('Hinweis: Mobilfunk-Roaming und VPNs können ein falsches Land melden.', 'Note: mobile roaming and VPNs can report a wrong country.'))
+  const known = { '': 0, DE: 1, 'DE,AT,CH': 2 }
+  const preset = current in known ? known[current] : 3
+  const choice = await choose(t('Aus welchen Ländern darf geöffnet werden?', 'Which countries may open the door?'), [
+    t('Überall', 'Anywhere'),
+    t('Nur Deutschland (DE)', 'Germany only (DE)'),
+    t('Deutschland, Österreich, Schweiz (DE, AT, CH)', 'Germany, Austria, Switzerland (DE, AT, CH)'),
+    t('Eigene Liste', 'Custom list'),
+  ], preset)
+  if (choice < 3) return ['', 'DE', 'DE,AT,CH'][choice]
+  for (;;) {
+    const codes = parseCountries(await ask(t('Ländercodes, z. B. DE,NL,FR', 'Country codes, e.g. DE,NL,FR'), current))
+    if (codes?.length) return serializeCountries(codes)
+    console.log(`  ✘ ${t('Zwei Buchstaben pro Land, mit Komma getrennt.', 'Two letters per country, separated by commas.')}`)
+  }
+}
+
 /* ---------- after deploy ---------- */
 
 async function postOpen(baseUrl, pin) {
@@ -371,10 +392,11 @@ const siteLocale = ['auto', 'de', 'en'][localeChoice]
 const title = await ask(t('Überschrift (leer = „Haustür“ bzw. „Front door“)', 'Heading (empty = "Front door" / "Haustür")'), currentEnv.VITE_SITE_TITLE ?? '')
 const contacts = await askContacts(currentEnv.VITE_CONTACTS)
 
-step(6, t('Adresse und Bot-Schutz', 'Address and bot protection'))
+step(6, t('Adresse und Zugriffsschutz', 'Address and access protection'))
 const domain = await askDomain(managed.domain)
 const hostname = domain ?? (cf.subdomain ? `${name}.${cf.subdomain}.workers.dev` : null)
 if (!hostname) warn(t('Für dein Konto ist noch keine workers.dev-Subdomain eingerichtet; sie wird beim Deploy angelegt.', 'Your account has no workers.dev subdomain yet; it is created during deploy.'))
+const countries = await askCountries(managed.vars.ALLOWED_COUNTRIES ?? '')
 info(t('Cloudflare Turnstile prüft unsichtbar, ob ein Mensch tippt (meist ohne Klick). Das stoppt Bots,', 'Cloudflare Turnstile checks invisibly that a human is tapping (usually without a click). It stops bots'))
 info(t('braucht aber eine Verbindung zu Cloudflare beim Öffnen der Seite. Kostenlos.', 'but needs a connection to Cloudflare when the page loads. Free.'))
 const useTurnstile = hostname !== null && (await confirm(t('Turnstile einschalten? (empfohlen)', 'Enable Turnstile? (recommended)'), true))
@@ -386,13 +408,14 @@ const summary = [
   [t('Öffnungszeiten', 'Opening hours'), hours ? `${formatOpenHours(parseOpenHours(hours))} (${timeZone})` : t('rund um die Uhr', 'around the clock')],
   [t('Sprache', 'Language'), siteLocale],
   [t('Telefon', 'Phone'), contacts.length ? contacts.map((c) => c.phone).join(', ') : t('keine', 'none')],
+  [t('Länder', 'Countries'), countries || t('überall', 'anywhere')],
   [t('Adresse', 'Address'), hostname ? `https://${hostname}` : '*.workers.dev'],
   ['Turnstile', useTurnstile ? t('an', 'on') : t('aus', 'off')],
 ]
 const width = Math.max(...summary.map(([label]) => label.length)) + 2
 for (const [label, value] of summary) info(`${`${label}:`.padEnd(width)}${value}`)
 
-const vars = { ...managed.vars, OPEN_HOURS: hours || undefined, TIMEZONE: timeZone }
+const vars = { ...managed.vars, OPEN_HOURS: hours || undefined, TIMEZONE: timeZone, ALLOWED_COUNTRIES: countries || undefined }
 const settings = { domain, vars }
 
 if (DRY_RUN) {

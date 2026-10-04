@@ -52,7 +52,7 @@ The installer takes about five minutes:
 | 3. PIN | Generates a random 8-digit PIN for visitors, or lets you choose one (at least 5 characters). |
 | 4. Opening hours | Around the clock, daytime (06:00–22:00) or your own times. |
 | 5. Page | Language, heading and phone numbers shown when something goes wrong. |
-| 6. Address | Your own domain or a free `*.workers.dev` address, and Turnstile on or off. |
+| 6. Address and protection | Your own domain or a free `*.workers.dev` address, which countries may open the door, and Turnstile on or off. |
 | 7. Publish | Creates the Turnstile widget, builds, deploys, uploads the secrets and checks that the page is live. |
 
 At the end you get the address, a link with the PIN pre-filled and the PIN itself. Write it down.
@@ -86,6 +86,7 @@ The goal is that **guessing is practically impossible**, misuse is limited, and 
 
 | Layer | Protects against | Details |
 | --- | --- | --- |
+| Country restriction (optional) | Attacks from abroad | Only visitors from the allowed countries (e.g. `DE`) can try anything. It runs first, so attempts from abroad never count towards the locks below. Others see your phone numbers. |
 | Opening hours | Use at night | Outside the hours the door cannot be opened at all, not even with the right PIN. |
 | Brute-force guard | Guessing the PIN, also from many IPs | One global [Durable Object](worker/guard.ts) sees every attempt worldwide. **Per client** (IPv4 address, IPv6 /64 network): locked after 5 wrong PINs, 1 minute, doubling up to 1 hour. **Globally**: 30 wrong PINs within an hour lock the door for everyone for 1 hour. While locked, even the correct PIN is refused, so a lock never reveals whether a guess was right. |
 | Turnstile (optional) | Bots and scripts | Cloudflare checks invisibly that a human is using the page; usually no click needed. Failed checks never count as PIN attempts. |
@@ -103,6 +104,7 @@ during which the door is locked about half of the time. An 8-digit PIN takes cen
 - **The PIN spreads.** Delivery people may pass it on. Change it from time to time and whenever you suspect misuse.
 - **The remembered PIN** sits in `localStorage` on the visitor's phone.
 - **Nuki does not confirm execution.** If the Bridge is offline, the page may report success although nothing happened.
+- **Country detection is not exact.** Mobile roaming, VPNs and company networks can report another country, and a VPN exit in an allowed country passes. The restriction cuts noise and botnets; it does not replace the PIN. A visitor who is wrongly blocked sees your phone numbers.
 - **Turnstile needs Cloudflare.** If its script is blocked on a visitor's phone, that visitor cannot open the door and sees the phone numbers.
 
 ### Protect your accounts
@@ -124,6 +126,7 @@ The installer manages all of this. For manual changes:
 | `NUKI_SMARTLOCK_ID` | Worker secret | Device ID from `npm run smartlocks` |
 | `ACCESS_PIN` | Worker secret | At least 5 characters, 8 digits recommended |
 | `TURNSTILE_SECRET_KEY` | Worker secret (optional) | Enables Turnstile; needs `VITE_TURNSTILE_SITE_KEY` |
+| `ALLOWED_COUNTRIES` | `vars` in `wrangler.jsonc` (optional) | ISO codes like `DE` or `DE,AT,CH`. Empty = from anywhere. Unknown countries (`XX`, Tor `T1`) are refused when a list is set |
 | `OPEN_HOURS` | `vars` in `wrangler.jsonc` (optional) | `07:00-21:00`; several ranges with commas, over midnight like `22:00-06:00`. Empty = always |
 | `TIMEZONE` | `vars` in `wrangler.jsonc` | IANA name like `Europe/Berlin`; required with `OPEN_HOURS` |
 | `NUKI_ACTION` | `vars` in `wrangler.jsonc` (optional) | Default `3` = Opener buzzer. On a Smart Lock: 1 unlock, 2 lock, 3 unlatch |
@@ -165,6 +168,7 @@ Live logs: `npx wrangler tail`, then tap the button.
 | --- | --- |
 | "The PIN is not correct" | Wrong PIN. Five wrong PINs lock that phone for a while. |
 | "Too many wrong attempts …" | Locked by the brute-force guard. Wait the time shown (at most 1 hour). |
+| "The door cannot be opened from your location" | Country restriction. Visitor is in (or appears to be in) a country not on the list; change it with `npm run setup`. |
 | "Only at these times …" | Outside the opening hours. Change them with `npm run setup`. |
 | "The security check failed" | Turnstile could not confirm a human. Reload the page; on persistent problems run `npm run setup` (checks the widget's domain). |
 | "Could not be opened right now" + `Nuki API rejected the request: HTTP 401/403` | Token invalid or without the action permission. |

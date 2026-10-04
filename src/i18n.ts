@@ -18,6 +18,7 @@ export interface Messages {
   /** {hours} = e.g. "07:00–21:00" */
   closed: string
   captchaFailed: string
+  countryBlocked: string
   failed: string
   changePin: string
   problems: string
@@ -42,6 +43,7 @@ const messages: Record<Locale, Messages> = {
     rateLimited: 'Too many attempts. Please try again in {time}.',
     closed: 'The door can only be opened at these times: {hours}.',
     captchaFailed: 'The security check failed. Please try again.',
+    countryBlocked: 'The door cannot be opened from your location. Please call.',
     failed: 'The door could not be opened right now. Please try again or call.',
     changePin: 'Change PIN',
     problems: 'Not working? Please call:',
@@ -64,6 +66,7 @@ const messages: Record<Locale, Messages> = {
     rateLimited: 'Zu viele Versuche. Bitte in {time} erneut versuchen.',
     closed: 'Die Tür lässt sich nur zu diesen Zeiten öffnen: {hours}.',
     captchaFailed: 'Die Sicherheitsprüfung ist fehlgeschlagen. Bitte noch einmal versuchen.',
+    countryBlocked: 'Von deinem Standort aus lässt sich die Tür nicht öffnen. Bitte anrufen.',
     failed: 'Die Tür konnte gerade nicht geöffnet werden. Bitte noch einmal versuchen oder anrufen.',
     changePin: 'PIN ändern',
     problems: 'Klappt etwas nicht? Bitte anrufen:',

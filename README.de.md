@@ -52,7 +52,7 @@ Der Installer braucht etwa fünf Minuten:
 | 3. PIN | Erzeugt einen zufälligen 8-stelligen PIN für Besucher oder lässt dich einen wählen (mindestens 5 Zeichen). |
 | 4. Öffnungszeiten | Rund um die Uhr, tagsüber (06:00–22:00) oder eigene Zeiten. |
 | 5. Seite | Sprache, Überschrift und Telefonnummern für den Notfall. |
-| 6. Adresse | Eigene Domain oder kostenlose `*.workers.dev`-Adresse, Turnstile an oder aus. |
+| 6. Adresse und Schutz | Eigene Domain oder kostenlose `*.workers.dev`-Adresse, aus welchen Ländern geöffnet werden darf, Turnstile an oder aus. |
 | 7. Veröffentlichen | Legt das Turnstile-Widget an, baut, deployt, lädt die Secrets hoch und prüft, ob die Seite läuft. |
 
 Am Ende bekommst du die Adresse, einen Link mit vorausgefülltem PIN und den PIN selbst. Notier ihn dir.
@@ -86,6 +86,7 @@ Das Ziel ist, dass **Raten praktisch unmöglich** ist, Missbrauch begrenzt bleib
 
 | Schicht | Schützt vor | Details |
 | --- | --- | --- |
+| Länderbeschränkung (optional) | Angriffe aus dem Ausland | Nur Besucher aus erlaubten Ländern (z. B. `DE`) können überhaupt etwas versuchen. Sie läuft als Erstes, deshalb zählen Versuche aus dem Ausland nie auf die Sperren unten. Alle anderen sehen deine Telefonnummern. |
 | Öffnungszeiten | Nutzung nachts | Außerhalb der Zeiten lässt sich die Tür gar nicht öffnen, auch nicht mit richtigem PIN. |
 | Schutz gegen Raten | PIN-Raten, auch von vielen IPs | Ein globales [Durable Object](worker/guard.ts) sieht jeden Versuch weltweit. **Pro Absender** (IPv4-Adresse, IPv6-/64-Netz): nach 5 falschen PINs gesperrt, 1 Minute, verdoppelt bis 1 Stunde. **Global**: 30 falsche PINs innerhalb einer Stunde sperren die Tür für alle für 1 Stunde. Während einer Sperre wird auch der richtige PIN abgelehnt; eine Sperre verrät also nie, ob ein Versuch gestimmt hätte. |
 | Turnstile (optional) | Bots und Skripte | Cloudflare prüft unsichtbar, ob ein Mensch die Seite nutzt, meist ohne Klick. Fehlgeschlagene Prüfungen zählen nie als PIN-Versuch. |
@@ -103,6 +104,7 @@ während die Tür etwa die Hälfte der Zeit gesperrt ist. Bei 8 Ziffern sind es 
 - **Der PIN verbreitet sich.** Lieferanten geben ihn weiter. Ändere ihn ab und zu und bei Verdacht auf Missbrauch.
 - **Der gemerkte PIN** liegt im `localStorage` des Besucher-Handys.
 - **Nuki bestätigt die Ausführung nicht.** Ist die Bridge offline, kann die Seite Erfolg melden, obwohl nichts passiert ist.
+- **Die Länderkennung ist nicht exakt.** Mobilfunk-Roaming, VPNs und Firmennetze können ein anderes Land melden, und ein VPN-Ausgang in einem erlaubten Land kommt durch. Die Beschränkung reduziert Lärm und Botnetze, sie ersetzt den PIN nicht. Wer zu Unrecht blockiert wird, sieht deine Telefonnummern.
 - **Turnstile braucht Cloudflare.** Blockiert ein Handy das Skript, kann dieser Besucher nicht öffnen und sieht die Telefonnummern.
 
 ### Konten absichern
@@ -124,6 +126,7 @@ Der Installer verwaltet das alles. Für Änderungen von Hand:
 | `NUKI_SMARTLOCK_ID` | Worker-Secret | Geräte-ID aus `npm run smartlocks` |
 | `ACCESS_PIN` | Worker-Secret | Mindestens 5 Zeichen, 8 Ziffern empfohlen |
 | `TURNSTILE_SECRET_KEY` | Worker-Secret (optional) | Schaltet Turnstile ein; braucht `VITE_TURNSTILE_SITE_KEY` |
+| `ALLOWED_COUNTRIES` | `vars` in `wrangler.jsonc` (optional) | ISO-Codes wie `DE` oder `DE,AT,CH`. Leer = von überall. Unbekannte Länder (`XX`, Tor `T1`) werden bei gesetzter Liste abgewiesen |
 | `OPEN_HOURS` | `vars` in `wrangler.jsonc` (optional) | `07:00-21:00`; mehrere Zeiträume mit Komma, über Mitternacht wie `22:00-06:00`. Leer = immer |
 | `TIMEZONE` | `vars` in `wrangler.jsonc` | IANA-Name wie `Europe/Berlin`; Pflicht mit `OPEN_HOURS` |
 | `NUKI_ACTION` | `vars` in `wrangler.jsonc` (optional) | Standard `3` = Opener-Summer. Beim Smart Lock: 1 entriegeln, 2 verriegeln, 3 Falle öffnen |
@@ -165,6 +168,7 @@ Live-Logs: `npx wrangler tail`, dann den Button tippen.
 | --- | --- |
 | „Der PIN ist nicht korrekt“ | Falscher PIN. Fünf falsche PINs sperren dieses Handy für eine Weile. |
 | „Zu viele Fehlversuche …“ | Gesperrt durch den Schutz gegen Raten. Angezeigte Zeit abwarten (höchstens 1 Stunde). |
+| „Von deinem Standort aus lässt sich die Tür nicht öffnen“ | Länderbeschränkung. Der Besucher ist (oder wirkt) in einem Land, das nicht auf der Liste steht; mit `npm run setup` ändern. |
 | „Nur zu diesen Zeiten …“ | Außerhalb der Öffnungszeiten. Mit `npm run setup` ändern. |
 | „Die Sicherheitsprüfung ist fehlgeschlagen“ | Turnstile konnte keinen Menschen bestätigen. Seite neu laden; bleibt es so, `npm run setup` ausführen (prüft die Domain des Widgets). |
 | „Konnte gerade nicht geöffnet werden“ + `Nuki API rejected the request: HTTP 401/403` | Token ungültig oder ohne Aktions-Recht. |
