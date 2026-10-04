@@ -18,6 +18,12 @@ Phone ──▶ Cloudflare Worker ──▶ Nuki Web API ──▶ Bridge ──
           checks: rate limit · opening hours · Turnstile · PIN + brute-force guard
 ```
 
+<p align="center">
+  <img src="docs/screenshot-light.png" alt="The page in light mode" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot-dark.png" alt="The page in dark mode" width="300">
+</p>
+
 > **Not affiliated with Nuki.** "Nuki" is a trademark of Nuki Home Solutions GmbH.
 > This project opens a door. Read [Security](#security) and use it at your own risk.
 

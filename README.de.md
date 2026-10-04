@@ -18,6 +18,12 @@ Handy ──▶ Cloudflare Worker ──▶ Nuki Web API ──▶ Bridge ──
           prüft: Rate-Limit · Öffnungszeiten · Turnstile · PIN + Schutz gegen Raten
 ```
 
+<p align="center">
+  <img src="docs/screenshot-light.png" alt="Die Seite im hellen Modus" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot-dark.png" alt="Die Seite im dunklen Modus" width="300">
+</p>
+
 > **Kein Nuki-Produkt.** „Nuki“ ist eine Marke der Nuki Home Solutions GmbH.
 > Das Projekt öffnet eine Tür. Lies den Abschnitt [Sicherheit](#sicherheit), Nutzung auf eigene Gefahr.
 
