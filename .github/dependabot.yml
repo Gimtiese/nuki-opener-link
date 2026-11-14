@@ -6,6 +6,12 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      # TypeScript 7 is the native compiler and no longer ships the JS API that
+      # vue-tsc 3.x loads, so `npm run check` crashes on TS 7. Revisit once
+      # vue-tsc supports TypeScript 7.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
     groups:
       all-dependencies:
         patterns: ['*']
